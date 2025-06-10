@@ -1,4 +1,4 @@
-export const API_URL = 'hhttps://ruhunu.onrender.com/api';
+export const API_URL = 'https://ruhunu.onrender.com/api';
 
 export const login = async (email, password) => {
   try {
