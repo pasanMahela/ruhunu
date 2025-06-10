@@ -15,7 +15,7 @@ connectDB();
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-app.onrender.com'] // Replace with your actual frontend URL
+    ? ['https://ruhunu-pos.onrender.com'] // Replace with your actual frontend URL
     : 'http://localhost:3000',
   credentials: true
 }));
