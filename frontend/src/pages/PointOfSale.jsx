@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSearch, FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../services/api';
+import Bill from '../components/Bill';
 
 const PointOfSale = () => {
   const BACKEND_API_URL = API_URL;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [searchPerformed, setSearchPerformed] = useState(false);
+  const [noResultsFound, setNoResultsFound] = useState(false);
   const [cartItems, setCartItems] = useState(() => {
     // Initialize cart from localStorage if available
     const savedCart = localStorage.getItem('posCart');
@@ -34,6 +39,12 @@ const PointOfSale = () => {
   const [cartDiscounts, setCartDiscounts] = useState({});
   const [editingCartDiscount, setEditingCartDiscount] = useState(null);
   const [deletingItems, setDeletingItems] = useState({});
+  const [searchResultDiscounts, setSearchResultDiscounts] = useState({});
+
+  // Add refs for first result
+  const quantityRef = useRef(null);
+  const discountRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Calculate cart totals
   const subtotal = cartItems.reduce((sum, item) => sum + (item.quantity * item.retailPrice), 0);
@@ -84,10 +95,14 @@ const PointOfSale = () => {
   const handleSearch = async (searchTerm) => {
     if (!searchTerm.trim()) {
       setSearchResults([]);
+      setSearchPerformed(false);
+      setNoResultsFound(false);
       return;
     }
 
     setSearchLoading(true);
+    setSearchPerformed(true);
+    setNoResultsFound(false);
     try {
       const response = await fetch(BACKEND_API_URL+`/items/search?q=${encodeURIComponent(searchTerm)}`, {
         headers: {
@@ -102,8 +117,9 @@ const PointOfSale = () => {
       const data = await response.json();
       
       if (data.data.length === 0) {
-        toast.error(`No items found with code or name: ${searchTerm}`);
         setSearchResults([]);
+        setNoResultsFound(true);
+        toast.error(`No items found with code or name: ${searchTerm}`);
       } else {
         // Update search results with cart quantities
         const updatedResults = data.data.map(item => {
@@ -114,14 +130,45 @@ const PointOfSale = () => {
           };
         });
         setSearchResults(updatedResults);
+        setNoResultsFound(false);
       }
       
       setError(null);
     } catch (err) {
       setError(err.message);
       setSearchResults([]);
+      setNoResultsFound(true);
     } finally {
       setSearchLoading(false);
+    }
+  };
+
+  // Get suggestions
+  const getSuggestions = async (searchTerm) => {
+    if (!searchTerm.trim()) {
+      setSuggestions([]);
+      return;
+    }
+
+    setSuggestionsLoading(true);
+    try {
+      const response = await fetch(BACKEND_API_URL+`/items/search?q=${encodeURIComponent(searchTerm)}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get suggestions');
+      }
+
+      const data = await response.json();
+      setSuggestions(data.data.slice(0, 5)); // Limit to 5 suggestions
+    } catch (err) {
+      console.error('Error getting suggestions:', err);
+      setSuggestions([]);
+    } finally {
+      setSuggestionsLoading(false);
     }
   };
 
@@ -129,12 +176,27 @@ const PointOfSale = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm.trim()) {
-        handleSearch(searchTerm);
+        getSuggestions(searchTerm);
+        setSearchPerformed(false);
+        setNoResultsFound(false);
+      } else {
+        setSuggestions([]);
+        setSearchPerformed(false);
+        setNoResultsFound(false);
       }
     }, 300);
 
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion) => {
+    setSearchTerm(suggestion.itemCode);
+    setSuggestions([]);
+    setSearchPerformed(true);
+    setNoResultsFound(false);
+    handleSearch(suggestion.itemCode);
+  };
 
   // Add function to update selected quantity
   const updateSelectedQuantity = (itemId, quantity) => {
@@ -149,8 +211,16 @@ const PointOfSale = () => {
     try {
       setAddingToCart(true);
       const quantity = selectedQuantities[item._id] || 1;
+      const discount = searchResultDiscounts[item._id] !== undefined ? parseFloat(searchResultDiscounts[item._id]) : item.discount;
+      const availableStock = item.quantityInStock - (item.cartQuantity || 0);
       
-      // Check if item has no stock
+      // Check if available stock is not greater than 0
+      if (availableStock <= 0) {
+        toast.error(`${item.name} stock not available`);
+        setAddingToCart(false);
+        return;
+      }
+      // Check if item has no stock (legacy check)
       if (item.quantityInStock === 0) {
         toast.error('Item is out of stock');
         setAddingToCart(false);
@@ -171,7 +241,8 @@ const PointOfSale = () => {
         },
         body: JSON.stringify({
           itemId: item._id,
-          quantity: quantity
+          quantity: quantity,
+          discount: discount // Pass the edited discount
         })
       });
 
@@ -187,7 +258,7 @@ const PointOfSale = () => {
         name: cartItem.item.name,
         itemCode: cartItem.item.itemCode,
         retailPrice: cartItem.item.retailPrice,
-        discount: cartItem.item.discount,
+        discount: searchResultDiscounts[cartItem.item._id] !== undefined ? parseFloat(searchResultDiscounts[cartItem.item._id]) : cartItem.item.discount,
         quantityInStock: cartItem.item.quantityInStock,
         location: cartItem.item.location,
         quantity: cartItem.quantity
@@ -199,6 +270,10 @@ const PointOfSale = () => {
       setSearchTerm(''); // Clear search term
       setError(null);
       toast.success('Item added to cart');
+
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
     } catch (err) {
       setError(err.message);
       toast.error('Failed to add item to cart');
@@ -520,6 +595,21 @@ const PointOfSale = () => {
     }));
   };
 
+  // Update discount handler
+  const handleSearchResultDiscountChange = (itemId, value) => {
+    setSearchResultDiscounts(prev => ({
+      ...prev,
+      [itemId]: value
+    }));
+  };
+
+  // Focus quantity input when search results appear
+  useEffect(() => {
+    if (searchResults.length > 0 && quantityRef.current) {
+      quantityRef.current.focus();
+    }
+  }, [searchResults]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
       <div className="max-w-7xl mx-auto">
@@ -532,166 +622,333 @@ const PointOfSale = () => {
         </motion.h1>
 
         <div className="grid grid-cols-1 gap-6">
-          {/* Search and Results */}
+          {/* Search Section */}
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSearch(searchTerm)}
-                placeholder="Search by item name or code..."
-                className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
-              />
+            <h2 className="text-xl font-semibold text-white mb-4">Search Items</h2>
+            
+            {/* Search Input and Button */}
+            <div className="flex gap-3 mb-4">
+              <div className="relative flex-1 max-w-md">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch(searchTerm)}
+                  placeholder="Search by item name or code..."
+                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500 pr-10"
+                />
+                <button
+                  onClick={() => handleSearch(searchTerm)}
+                  disabled={searchLoading}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 px-3 py-1 bg-slate-600 hover:bg-slate-500 rounded text-slate-300 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {searchLoading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                      className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full"
+                    />
+                  ) : (
+                    <FiSearch size={16} />
+                  )}
+                </button>
+              </div>
               <button
                 onClick={() => handleSearch(searchTerm)}
-                disabled={searchLoading}
-                className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors disabled:opacity-50"
+                disabled={searchLoading || !searchTerm.trim()}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {searchLoading ? (
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full"
-                  />
-                ) : (
-                  <FiSearch size={20} />
-                )}
+                Find
               </button>
             </div>
 
-            {/* Search Results */}
-            <AnimatePresence>
-              {searchResults.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mt-4 space-y-2"
-                >
-                  {searchResults.map((item) => {
+            {/* Search Suggestions */}
+            {searchTerm.trim() && suggestions.length > 0 && !suggestionsLoading && !searchPerformed && (
+              <div className="bg-slate-700/30 rounded-lg border border-slate-600/50 overflow-hidden">
+                <div className="p-3 border-b border-slate-600/50">
+                  <p className="text-slate-300 text-sm font-medium">Suggestions</p>
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {suggestions.map((item) => (
+                    <button
+                      key={item._id}
+                      onClick={() => handleSuggestionClick(item)}
+                      className="w-full px-4 py-3 text-left hover:bg-slate-600/50 transition-colors border-b border-slate-600/30 last:border-b-0"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-white font-medium">{item.name}</p>
+                          <p className="text-slate-400 text-sm">Code: {item.itemCode}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-slate-300 text-sm">Rs. {item.retailPrice.toFixed(2)}</p>
+                          <p className="text-slate-400 text-xs">{item.quantityInStock} in stock</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No Suggestions */}
+            {searchTerm.trim() && suggestions.length === 0 && !suggestionsLoading && !searchPerformed && (
+              <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                <p className="text-slate-400 text-sm">No items found. Try a different search term or click "Find" to search.</p>
+              </div>
+            )}
+
+            {/* Loading State */}
+            {suggestionsLoading && (
+              <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full"
+                  />
+                  <span className="text-slate-300">Loading suggestions...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Search Loading State */}
+            {searchLoading && (
+              <div className="bg-slate-700/30 rounded-lg p-4 border border-slate-600/50">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="w-5 h-5 border-2 border-blue-400 border-t-transparent rounded-full"
+                  />
+                  <span className="text-slate-300">Searching...</span>
+                </div>
+              </div>
+            )}
+
+            {/* No Results Found */}
+            {searchPerformed && noResultsFound && !searchLoading && (
+              <div className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-2xl p-8">
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.08-2.33" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Item Not Found</h3>
+                  <p className="text-slate-400 mb-4">No items found matching "{searchTerm}"</p>
+                  <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+                    <span>Try searching with:</span>
+                    <ul className="flex gap-2">
+                      <li className="bg-slate-700/50 px-2 py-1 rounded text-slate-300">Item name</li>
+                      <li className="bg-slate-700/50 px-2 py-1 rounded text-slate-300">Item code</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Search Results */}
+          <AnimatePresence>
+            {searchPerformed && searchResults.length > 0 && !searchLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 shadow-2xl"
+              >
+                {/* Header */}
+                <div className="px-8 py-6 border-b border-white/10">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Search Results</h2>
+                      <p className="text-slate-400 mt-1">Found {searchResults.length} {searchResults.length === 1 ? 'item' : 'items'}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-sm text-slate-400">Ready to add items</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Results List */}
+                <div className="p-6 space-y-4">
+                  {searchResults.map((item, index) => {
                     const quantity = selectedQuantities[item._id] || 1;
-                    const itemTotal = quantity * item.retailPrice * (1 - item.discount / 100);
+                    const discount = searchResultDiscounts[item._id] !== undefined ? parseFloat(searchResultDiscounts[item._id]) : item.discount;
+                    const itemTotal = quantity * item.retailPrice * (1 - discount / 100);
                     
+                    // Keyboard handlers
+                    const handleQuantityKeyDown = (e) => {
+                      if (e.key === 'Enter' && index === 0 && discountRef.current) {
+                        discountRef.current.focus();
+                        e.preventDefault();
+                      }
+                    };
+                    const handleDiscountKeyDown = (e) => {
+                      if (e.key === 'Enter' && index === 0) {
+                        addToCart(item);
+                        e.preventDefault();
+                      }
+                    };
+
                     return (
                       <motion.div
                         key={item._id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="bg-slate-800/80 backdrop-blur-sm rounded-xl p-6 border border-slate-700/50 shadow-xl"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 20 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="group relative bg-gradient-to-r from-slate-800/50 to-slate-700/50 rounded-xl border border-white/5 hover:border-white/20 transition-all duration-300 hover:shadow-lg"
                       >
-                        <div className="flex flex-col md:flex-row gap-6">
-                          {/* Left Section - Item Details */}
-                          <div className="flex-1 space-y-4">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h3 className="text-xl font-semibold text-white mb-1">{item.name}</h3>
-                                <p className="text-sm text-slate-400">Code: {item.itemCode}</p>
-                                {item.cartQuantity > 0 && (
-                                  <p className="text-sm text-blue-400 mt-1">
-                                    Already in cart: {item.cartQuantity} {item.cartQuantity === 1 ? 'item' : 'items'}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <p className="text-2xl font-bold text-white">Rs. {item.retailPrice.toFixed(2)}</p>
-                                <p className="text-sm text-slate-400">per unit</p>
+                        <div className="p-6">
+                          <div className="flex items-center justify-between">
+                            {/* Left Section - Item Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-4">
+                                {/* Item Icon/Image Placeholder */}
+                                <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg flex items-center justify-center border border-white/10">
+                                  <span className="text-lg font-bold text-white">{item.name.charAt(0).toUpperCase()}</span>
+                                </div>
+                                
+                                {/* Item Details */}
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="text-lg font-semibold text-white truncate group-hover:text-blue-300 transition-colors">
+                                    {item.name}
+                                  </h3>
+                                  <div className="flex items-center gap-4 mt-2 text-sm">
+                                    <span className="text-slate-400">
+                                      <span className="font-medium text-slate-300">#{item.itemCode}</span>
+                                    </span>
+                                    <span className="text-slate-400">
+                                      <span className="font-medium text-slate-300">{item.location}</span>
+                                    </span>
+                                  </div>
+                                </div>
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="bg-slate-700/50 rounded-lg p-3">
-                                <p className="text-sm text-slate-400 mb-1">Available Stock</p>
-                                <p className="text-lg font-medium text-white">
-                                  {item.quantityInStock - (item.cartQuantity || 0)} units
+                            {/* Center Section - Price & Stock */}
+                            <div className="flex items-center gap-8 mx-8">
+                              {/* Price */}
+                              <div className="text-center">
+                                <p className="text-2xl font-bold text-white">Rs. {item.retailPrice.toFixed(2)}</p>
+                                {item.discount > 0 && (
+                                  <div className="mt-1">
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                                      {item.discount}% OFF
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Stock */}
+                              <div className="text-center">
+                                <p className="text-sm text-slate-400 mb-1">Available</p>
+                                <p className="text-xl font-bold text-white">
+                                  {item.quantityInStock - (item.cartQuantity || 0)}
                                 </p>
                                 {item.cartQuantity > 0 && (
-                                  <p className="text-xs text-blue-400 mt-1">
-                                    {item.cartQuantity} {item.cartQuantity === 1 ? 'unit' : 'units'} in cart
-                                  </p>
+                                  <div className="mt-1">
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                      {item.cartQuantity} in cart
+                                    </span>
+                                  </div>
                                 )}
                               </div>
-                              <div className="bg-slate-700/50 rounded-lg p-3">
-                                <p className="text-sm text-slate-400 mb-1">Location</p>
-                                <p className="text-lg font-medium text-white">{item.location}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Right Section - Actions */}
-                          <div className="md:w-80 space-y-4">
-                            {/* Discount Section */}
-                            <div className="bg-slate-700/50 rounded-lg p-4">
-                              <div className="flex items-center justify-between mb-2">
-                                <p className="text-sm font-medium text-slate-300">Discount</p>
-                              </div>
-                              <p className="text-2xl font-bold text-white">{item.discount}%</p>
                             </div>
 
-                            {/* Quantity Section */}
-                            <div className="bg-slate-700/50 rounded-lg p-4">
-                              <p className="text-sm font-medium text-slate-300 mb-3">Quantity</p>
+                            {/* Right Section - Quantity, Discount & Actions */}
+                            <div className="flex items-center gap-6">
+                              {/* Quantity Controls */}
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() => updateSelectedQuantity(item._id, quantity - 1)}
-                                  className="w-10 h-10 flex items-center justify-center bg-slate-600 hover:bg-slate-500 rounded-lg text-white transition-colors"
+                                  className="w-10 h-10 flex items-center justify-center bg-slate-700/50 hover:bg-slate-600/50 rounded-lg text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
+                                  disabled={quantity <= 1}
                                 >
-                                  <FiMinus size={20} />
+                                  <FiMinus size={18} />
                                 </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max={item.quantityInStock}
-                                  value={quantity}
-                                  onChange={(e) => updateSelectedQuantity(item._id, parseInt(e.target.value) || 1)}
-                                  className="w-24 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white text-center text-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                />
+                                
+                                <div className="relative">
+                                  <input
+                                    ref={index === 0 ? quantityRef : undefined}
+                                    type="number"
+                                    min="1"
+                                    max={item.quantityInStock}
+                                    value={quantity}
+                                    onChange={(e) => updateSelectedQuantity(item._id, parseInt(e.target.value) || 1)}
+                                    onKeyDown={handleQuantityKeyDown}
+                                    className="w-20 px-4 py-2 bg-slate-700/50 border border-white/10 rounded-lg text-white text-center font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                  />
+                                </div>
+                                
                                 <button
                                   onClick={() => updateSelectedQuantity(item._id, quantity + 1)}
-                                  className="w-10 h-10 flex items-center justify-center bg-slate-600 hover:bg-slate-500 rounded-lg text-white transition-colors"
+                                  className="w-10 h-10 flex items-center justify-center bg-slate-700/50 hover:bg-slate-600/50 rounded-lg text-white transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-white/10"
+                                  disabled={quantity >= item.quantityInStock}
                                 >
-                                  <FiPlus size={20} />
+                                  <FiPlus size={18} />
                                 </button>
                               </div>
-                              {item.cartQuantity > 0 && (
-                                <p className="text-sm text-blue-400 mt-2">
-                                  Total after adding: {item.cartQuantity + quantity} {item.cartQuantity + quantity === 1 ? 'item' : 'items'}
-                                </p>
-                              )}
-                            </div>
 
-                            {/* Total and Add Button */}
-                            <div className="bg-slate-700/50 rounded-lg p-4">
-                              <div className="flex justify-between items-center mb-4">
-                                <p className="text-sm font-medium text-slate-300">Total</p>
-                                <p className="text-2xl font-bold text-white">Rs. {itemTotal.toFixed(2)}</p>
+                              {/* Discount Field */}
+                              <div className="flex flex-col items-center gap-1 min-w-[90px]">
+                                <label className="text-xs text-slate-400 mb-1">Discount (%)</label>
+                                <input
+                                  ref={index === 0 ? discountRef : undefined}
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={discount}
+                                  onChange={e => handleSearchResultDiscountChange(item._id, e.target.value)}
+                                  onKeyDown={handleDiscountKeyDown}
+                                  className="w-20 px-2 py-1 bg-slate-700/50 border border-white/10 rounded-lg text-white text-center font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                />
                               </div>
-                              <button
-                                onClick={() => addToCart(item)}
-                                disabled={addingToCart}
-                                className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg text-sm font-medium transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg disabled:opacity-50"
-                              >
-                                {addingToCart ? (
-                                  <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                    className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto"
-                                  />
-                                ) : (
-                                  'Add to Cart'
-                                )}
-                              </button>
+
+                              {/* Total & Add Button */}
+                              <div className="text-right">
+                                <p className="text-sm text-slate-400 mb-2">Total</p>
+                                <p className="text-xl font-bold text-white mb-3">Rs. {itemTotal.toFixed(2)}</p>
+                                
+                                <button
+                                  onClick={() => addToCart(item)}
+                                  disabled={addingToCart || item.quantityInStock === 0}
+                                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                                >
+                                  {addingToCart ? (
+                                    <motion.div
+                                      animate={{ rotate: 360 }}
+                                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                      className="w-5 h-5 border-2 border-white border-t-transparent rounded-full mx-auto"
+                                    />
+                                  ) : item.quantityInStock === 0 ? (
+                                    <span className="flex items-center gap-2">
+                                      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                                      Out of Stock
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-2">
+                                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                                      Add to Cart
+                                    </span>
+                                  )}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </motion.div>
                     );
                   })}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Cart Table */}
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
@@ -958,8 +1215,8 @@ const PointOfSale = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-lg p-6 w-96">
             <h2 className="text-xl font-semibold text-white mb-4">Sale Completed</h2>
-            <p className="text-slate-300 mb-6">Would you like to print the bill?</p>
-            <div className="flex justify-end gap-3">
+            <Bill saleData={saleData} />
+            <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowPrintBill(false)}
                 className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white"

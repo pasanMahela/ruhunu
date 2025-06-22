@@ -84,6 +84,7 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAllLowStock, setShowAllLowStock] = useState(false);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -170,6 +171,9 @@ const Dashboard = () => {
     }
   };
 
+  // Filtered low stock items
+  const filteredLowStockItems = lowStockItems.filter(item => item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel));
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6 flex items-center justify-center">
@@ -188,6 +192,8 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  console.log('DEBUG: lowStockItems', lowStockItems);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
@@ -308,16 +314,19 @@ const Dashboard = () => {
           >
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-xl font-semibold text-slate-300">Low Stock Alerts</h3>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="text-slate-400 hover:text-slate-300 flex items-center"
-              >
-                View All <FiArrowRight className="ml-1" />
-              </motion.button>
+              {filteredLowStockItems.length > 3 && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="text-slate-400 hover:text-slate-300 flex items-center"
+                  onClick={() => setShowAllLowStock(true)}
+                >
+                  View All <FiArrowRight className="ml-1" />
+                </motion.button>
+              )}
             </div>
             <div className="space-y-4">
-              {lowStockItems.map((item) => (
+              {filteredLowStockItems.slice(0, 3).map((item) => (
                 <motion.div
                   key={item._id}
                   initial={{ opacity: 0, x: -20 }}
@@ -330,15 +339,55 @@ const Dashboard = () => {
                   </div>
                   <div className="flex items-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.quantityInStock <= item.minStockLevel ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                      item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
                     }`}>
                       {item.quantityInStock} in stock
                     </span>
                   </div>
                 </motion.div>
               ))}
+              {filteredLowStockItems.length === 0 && (
+                <div className="text-slate-400 text-center py-4">No low stock items</div>
+              )}
             </div>
           </motion.div>
+
+          {/* Modal for all low stock items */}
+          {showAllLowStock && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/10">
+              <div className="bg-slate-800 rounded-lg p-8 w-full max-w-3xl mx-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-2xl font-semibold text-white">All Low Stock Items</h3>
+                  <button
+                    onClick={() => setShowAllLowStock(false)}
+                    className="text-slate-400 hover:text-white text-2xl font-bold"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+                  {filteredLowStockItems.map((item) => (
+                    <div key={item._id} className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
+                      <div>
+                        <p className="text-slate-200 font-medium text-lg">{item.name}</p>
+                        <p className="text-slate-400 text-sm">{item.itemCode}</p>
+                      </div>
+                      <div className="flex items-center">
+                        <span className={`px-3 py-2 rounded-full text-sm font-medium ${
+                          item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {item.quantityInStock} in stock
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {filteredLowStockItems.length === 0 && (
+                    <div className="text-slate-400 text-center py-4">No low stock items</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}

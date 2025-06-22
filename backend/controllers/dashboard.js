@@ -35,7 +35,7 @@ exports.getStats = async (req, res) => {
     ]);
 
     // Get total customers (unique customer names)
-    const totalCustomers = await Sale.distinct('customerName').length;
+    const totalCustomers = await Sale.length;
 
     // Get inventory value
     const inventoryValue = await Item.aggregate([
@@ -49,8 +49,8 @@ exports.getStats = async (req, res) => {
 
     // Get low stock items
     const lowStockItems = await Item.find({
-      $expr: { $lte: ['$quantityInStock', '$minStockLevel'] }
-    }).select('name itemCode quantityInStock minStockLevel');
+      $expr: { $lte: ['$quantityInStock', '$lowerLimit'] }
+    }).select('name itemCode quantityInStock lowerLimit');
 
     // Get recent activity (last 5 sales)
     const recentActivity = await Sale.find()
