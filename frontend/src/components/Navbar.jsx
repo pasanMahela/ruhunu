@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiMenu, FiX, FiHome, FiUsers, FiPackage,
-  FiLogOut, FiPlus, FiShoppingCart
+  FiLogOut, FiPlus, FiShoppingCart, FiTrendingUp, FiBarChart
 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -16,13 +16,21 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   const navItems = [
+    // Main Operations
     { path: '/pos', label: 'POS', icon: FiShoppingCart, roles: ['admin', 'user'] },
+    
+    // Inventory Management
     { path: '/inventory', label: 'Inventory', icon: FiPackage, roles: ['admin', 'user'] },
+    { path: '/add-new-item', label: 'Add Item', icon: FiPlus, roles: ['admin'] },
+    { path: '/add-stocks', label: 'Add Stocks', icon: FiPlus, roles: ['admin'] },
+    
+    // Reports & Analytics
     { path: '/dashboard', label: 'Dashboard', icon: FiHome, roles: ['admin'] },
-    { path: '/add-new-item', label: 'Item', icon: FiPlus, roles: ['admin'] },
-    { path: '/add-stocks', label: 'Stocks', icon: FiPlus, roles: ['admin'] },
-    { path: '/users', label: 'Users', icon: FiUsers, roles: ['admin'] },
-    { path: '/sales-history', label: 'Sales', icon: FiShoppingCart, roles: ['admin'] }
+    { path: '/item-balance', label: 'Item Balance', icon: FiTrendingUp, roles: ['admin'] },
+    { path: '/sales-history', label: 'Sales History', icon: FiBarChart, roles: ['admin'] },
+    
+    // User Management
+    { path: '/users', label: 'Users', icon: FiUsers, roles: ['admin'] }
   ];
 
   const handleLogout = () => {
@@ -67,16 +75,28 @@ const Navbar = () => {
         <div className="flex justify-between items-center h-16">
           {/* Logo & Desktop Navigation */}
           <div className="flex items-center">
-            <Link to="/dashboard" className="flex items-center gap-2">
+            <Link to="/dashboard" className="flex items-center gap-2 mr-6">
               <motion.div
-                initial={{ opacity: 0, x: -18 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-gradient-to-r from-red-500 via-orange-400 to-yellow-500 bg-clip-text text-transparent font-bold text-xl drop-shadow-lg"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="w-8 h-8 bg-gradient-to-br from-red-500 via-orange-400 to-yellow-500 rounded-lg flex items-center justify-center shadow-lg flex-shrink-0"
               >
-                Ruhunu Tyre House
+                <span className="text-white font-bold text-sm">R</span>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col"
+              >
+                <div className="text-white font-bold text-base leading-tight whitespace-nowrap">
+                  Ruhunu Tyre House
+                </div>
+                <div className="text-blue-200 text-xs font-medium whitespace-nowrap">
+                  POS System
+                </div>
               </motion.div>
             </Link>
-            <div className="hidden md:flex md:ml-10 gap-1">
+            <div className="hidden lg:flex gap-1">
               {navItems.map((item) => (
                 <NavLink key={item.path} item={item} />
               ))}
@@ -122,10 +142,10 @@ const Navbar = () => {
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-150 shadow-md hover:shadow-xl"
+                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white rounded-2xl font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-150 shadow-md hover:shadow-xl"
+                title="Logout"
               >
                 <FiLogOut />
-                Logout
               </motion.button>
             </div>
             {/* Mobile menu button */}
@@ -175,7 +195,6 @@ const Navbar = () => {
                 className="flex items-center gap-2 w-full px-4 py-2 mt-2 bg-gradient-to-r from-red-600 to-pink-600 text-white rounded-xl font-semibold hover:from-red-700 hover:to-pink-700 transition-all duration-150 shadow-lg hover:shadow-xl"
               >
                 <FiLogOut />
-                Logout
               </motion.button>
             </div>
           </motion.div>

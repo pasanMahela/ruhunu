@@ -1,6 +1,8 @@
 const Item = require('../models/Item');
 const asyncHandler = require('../middleware/async');
 const ErrorResponse = require('../utils/errorResponse');
+const Category = require('../models/Category');
+const StockPurchase = require('../models/StockPurchase');
 
 // @desc    Get all items
 // @route   GET /api/items
@@ -192,6 +194,26 @@ exports.updateStock = asyncHandler(async (req, res, next) => {
     },
     { new: true, runValidators: true }
   ).populate('category', 'name');
+
+  // Create StockPurchase record if quantity is positive (stock addition)
+  if (quantity > 0) {
+    const finalPurchasePrice = purchasePrice || item.purchasePrice;
+    const finalRetailPrice = retailPrice || item.retailPrice;
+    const totalPurchaseValue = quantity * finalPurchasePrice;
+
+    await StockPurchase.create({
+      item: item._id,
+      itemCode: item.itemCode,
+      itemName: item.name,
+      quantity: quantity,
+      purchasePrice: finalPurchasePrice,
+      retailPrice: finalRetailPrice,
+      totalPurchaseValue: totalPurchaseValue,
+      addedBy: req.user._id,
+      addedByUser: req.user.name,
+      notes: `Stock added via AddStocks page`
+    });
+  }
 
   res.status(200).json({
     success: true,

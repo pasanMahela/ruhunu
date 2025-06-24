@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import AddNewItem from './pages/AddNewItem';
 import PointOfSale from './pages/PointOfSale';
 import SalesHistory from './pages/SalesHistory';
+import ItemBalance from './pages/ItemBalance';
 import { FiArrowLeft } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -127,6 +128,14 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <SalesHistory />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/item-balance"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ItemBalance />
               </ProtectedRoute>
             }
           />

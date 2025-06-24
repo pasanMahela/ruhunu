@@ -53,6 +53,7 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/cart', cartRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/item-balance', require('./routes/itemBalance'));
 
 // Error handling middleware
 app.use((err, req, res, next) => {
