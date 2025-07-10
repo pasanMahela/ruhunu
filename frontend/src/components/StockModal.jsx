@@ -67,7 +67,7 @@ const StockModal = ({ isOpen, onClose, item, action, onSuccess }) => {
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-lg shadow-xl w-full max-w-md"
+            className="bg-white rounded-lg shadow-xl w-full max-w-md border-2 border-blue-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6">
@@ -77,7 +77,7 @@ const StockModal = ({ isOpen, onClose, item, action, onSuccess }) => {
                 </h2>
                 <button
                   onClick={onClose}
-                  className="text-gray-500 hover:text-gray-700"
+                    className="text-gray-600 hover:text-gray-800"
                 >
                   <FiX size={24} />
                 </button>
@@ -99,8 +99,8 @@ const StockModal = ({ isOpen, onClose, item, action, onSuccess }) => {
                     onChange={(e) => setQuantity(e.target.value)}
                     min="1"
                     step="1"
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      error ? 'border-red-500' : 'border-gray-300'
+                    className={`w-full px-3 py-2 border-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      error ? 'border-red-500' : 'border-blue-200'
                     }`}
                     placeholder={`Enter quantity to ${action === 'in' ? 'add' : 'remove'}`}
                   />
@@ -122,7 +122,7 @@ const StockModal = ({ isOpen, onClose, item, action, onSuccess }) => {
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 border-2 border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
                   >
                     Cancel
                   </button>

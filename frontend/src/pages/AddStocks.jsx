@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiSearch, FiPlus, FiAlertCircle, FiDownload, FiUpload } from 'react-icons/fi';
 import axios from 'axios';
@@ -57,6 +57,11 @@ const generateResultExcel = (validationResults) => {
 const AddStocks = () => {
   const navigate = useNavigate();
   const { token } = useAuth();
+  const fileInputRef = useRef(null);
+  const submitButtonRef = useRef(null);
+  const itemCodeInputRef = useRef(null);
+  const searchButtonRef = useRef(null);
+  
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showNewItemModal, setShowNewItemModal] = useState(false);
@@ -80,9 +85,81 @@ const AddStocks = () => {
 
   const BACKEND_API_URL = API_URL;
 
+  useEffect(() => {
+    // Focus the item code input when component mounts
+    if (itemCodeInputRef.current) {
+      itemCodeInputRef.current.focus();
+    }
+
+    // Add keyboard shortcuts
+    const handleKeyDown = (e) => {
+      // Ctrl+S or Cmd+S to save/submit
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (submitButtonRef.current && !loading && formData.itemCode && formData.newStock) {
+          submitButtonRef.current.click();
+        }
+      }
+      
+      // Ctrl+F or Cmd+F to focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        if (itemCodeInputRef.current) {
+          itemCodeInputRef.current.focus();
+          itemCodeInputRef.current.select();
+        }
+      }
+      
+      // F3 or Ctrl+Enter to search
+      if (e.key === 'F3' || ((e.ctrlKey || e.metaKey) && e.key === 'Enter')) {
+        e.preventDefault();
+        if (searchButtonRef.current && formData.itemCode) {
+          searchButtonRef.current.click();
+        }
+      }
+      
+      // Ctrl+T or Cmd+T to download template
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+        e.preventDefault();
+        downloadTemplate();
+      }
+      
+      // Ctrl+U or Cmd+U to upload file
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+        e.preventDefault();
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }
+      
+      // Ctrl+N or Cmd+N to add new item
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        setShowNewItemModal(true);
+      }
+      
+      // Escape to cancel/navigate back
+      if (e.key === 'Escape') {
+        if (showValidationModal) {
+          setShowValidationModal(false);
+        } else if (showNewItemModal) {
+          setShowNewItemModal(false);
+        } else {
+          navigate('/inventory');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [loading, formData.itemCode, showValidationModal, showNewItemModal, navigate]);
+
   const handleSearch = async () => {
     if (!formData.itemCode.trim()) {
       setErrors(prev => ({ ...prev, itemCode: 'Item Code is required' }));
+      if (itemCodeInputRef.current) {
+        itemCodeInputRef.current.focus();
+      }
       return;
     }
 
@@ -124,7 +201,15 @@ const AddStocks = () => {
         lowerLimit: item.lowerLimit?.toString() || ''
       }));
       setErrors({});
-      toast.success('Item found');
+      toast.success('Item found! Cursor moved to Location field.');
+      
+      // Focus the location field next since other fields are populated
+      setTimeout(() => {
+        const locationField = document.querySelector('input[name="location"]');
+        if (locationField) {
+          locationField.focus();
+        }
+      }, 100);
     } catch (error) {
       console.error('Error searching for item:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Item not found';
@@ -156,12 +241,53 @@ const AddStocks = () => {
     }
   };
 
+  // Handle Enter key on form inputs
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      
+      // Special handling for item code - trigger search, then move to location
+      if (e.target.name === 'itemCode') {
+        if (formData.itemCode.trim()) {
+          handleSearch();
+          // After search, focus will be moved to location in handleSearch success
+        }
+        return;
+      }
+      
+      // For other inputs, move to next field in the specified order
+      const fieldOrder = ['location', 'newStock', 'purchasePrice', 'retailPrice', 'itemDiscount'];
+      const currentField = e.target.name;
+      const currentIndex = fieldOrder.indexOf(currentField);
+      
+      if (currentIndex !== -1 && currentIndex < fieldOrder.length - 1) {
+        // Move to next field in order
+        const nextFieldName = fieldOrder[currentIndex + 1];
+        const nextField = document.querySelector(`input[name="${nextFieldName}"]`);
+        if (nextField) {
+          nextField.focus();
+        }
+      } else if (currentField === 'itemDiscount') {
+        // Last field - move to submit button
+        if (submitButtonRef.current) {
+          submitButtonRef.current.focus();
+        }
+      }
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.itemCode) newErrors.itemCode = 'Item Code is required';
+    if (!formData.itemCode) {
+      newErrors.itemCode = 'Item Code is required';
+      if (itemCodeInputRef.current) {
+        itemCodeInputRef.current.focus();
+      }
+    }
     if (!formData.location) newErrors.location = 'Location is required';
-    if (!formData.newStock) newErrors.newStock = 'New Stock is required';
-    if (formData.newStock && isNaN(formData.newStock)) {
+    if (!formData.newStock) {
+      newErrors.newStock = 'New Stock is required';
+    } else if (isNaN(formData.newStock)) {
       newErrors.newStock = 'Must be a number';
     }
     if (formData.lowerLimit && isNaN(formData.lowerLimit)) {
@@ -208,12 +334,18 @@ const AddStocks = () => {
       );
 
       if (response.data.success) {
-        toast.success('Stock updated successfully');
+        toast.success('Stock updated successfully! Press Ctrl+F to search for another item.');
         setFormData(prev => ({
           ...prev,
           currentStock: (parseInt(prev.currentStock) + parseInt(prev.newStock)).toString(),
           newStock: ''
         }));
+        
+        // Focus item code input for next search
+        if (itemCodeInputRef.current) {
+          itemCodeInputRef.current.focus();
+          itemCodeInputRef.current.select();
+        }
       } else {
         throw new Error(response.data.message || 'Failed to update stock');
       }
@@ -257,7 +389,7 @@ const AddStocks = () => {
     XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
 
     XLSX.writeFile(wb, 'stock_update_template.xlsx');
-    toast.success('Template downloaded successfully');
+    toast.success('Template downloaded successfully (Ctrl+T)');
   };
 
   const validateStockData = async (data) => {
@@ -432,7 +564,7 @@ const AddStocks = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       {loading || uploadLoading ? (
         <div className="min-h-screen flex items-center justify-center">
           <motion.div
@@ -445,7 +577,7 @@ const AddStocks = () => {
               repeat: Infinity,
               ease: "linear",
             }}
-            className="w-16 h-16 border-4 border-slate-600 border-t-slate-400 rounded-full"
+            className="w-16 h-16 border-4 border-blue-300 border-t-blue-600 rounded-full"
           />
         </div>
       ) : (
@@ -454,30 +586,53 @@ const AddStocks = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-4xl mx-auto"
         >
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-lg">
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 bg-clip-text text-transparent">
-                Add Stocks
-              </h1>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent">
+                  Add Stocks
+                </h1>
+                <p className="text-sm text-gray-600 mt-1"> <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">F3</kbd> Find Item,
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+S</kbd> Save, 
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+T</kbd> Template, 
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+U</kbd> Upload,
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+N</kbd> New Item,
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Esc</kbd> Cancel
+                </p>
+              </div>
               <div className="flex space-x-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={downloadTemplate}
-                  className="px-4 py-2 bg-slate-700/50 text-white rounded-lg flex items-center space-x-2 hover:bg-slate-700 transition-colors"
+                  title="Download Template (Ctrl+T)"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  tabIndex="0"
                 >
                   <FiDownload className="text-lg" />
                   <span>Download Template</span>
                 </motion.button>
-                <label className="px-4 py-2 bg-slate-700/50 text-white rounded-lg flex items-center space-x-2 hover:bg-slate-700 transition-colors cursor-pointer">
+                <label 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+                  title="Upload Excel File (Ctrl+U)"
+                  tabIndex="0"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                >
                   <FiUpload className="text-lg" />
                   <span>Upload Excel</span>
                   <input
+                    ref={fileInputRef}
                     key={fileInputKey}
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleFileUpload}
                     className="hidden"
+                    tabIndex="-1"
                   />
                 </label>
               </div>
@@ -487,25 +642,29 @@ const AddStocks = () => {
               {/* Item Code with Search */}
               <div className="flex gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Item Code
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Item Code *
                   </label>
                   <div className="relative">
                     <input
+                      ref={itemCodeInputRef}
                       type="text"
                       name="itemCode"
                       value={formData.itemCode}
                       onChange={handleChange}
-                      className={`w-full px-4 py-2 bg-slate-800/50 border ${
-                        errors.itemCode ? 'border-red-500' : 'border-slate-700'
-                      } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500`}
-                      placeholder="Enter item code"
+                      onKeyPress={handleKeyPress}
+                      placeholder="Enter item code and press Enter or F3 to search"
+                      autoComplete="off"
+                      className={`w-full px-4 py-2 bg-white border-2 ${
+                        errors.itemCode ? 'border-red-500' : 'border-blue-200'
+                      } rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                      tabIndex="1"
                     />
                     {errors.itemCode && (
                       <motion.p
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="text-red-400 text-sm mt-1"
+                        className="text-red-600 text-sm mt-1"
                       >
                         {errors.itemCode}
                       </motion.p>
@@ -514,12 +673,15 @@ const AddStocks = () => {
                 </div>
                 <div className="flex items-end">
                   <motion.button
+                    ref={searchButtonRef}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="button"
                     onClick={handleSearch}
                     disabled={searchLoading}
-                    className="px-4 py-2 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-lg hover:from-slate-800 hover:to-slate-700 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 border border-slate-600"
+                    title="Search Item (F3 or Ctrl+Enter)"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 border-2 border-blue-500 focus:outline-none"
+                    tabIndex="2"
                   >
                     {searchLoading ? (
                       <motion.div
@@ -543,7 +705,7 @@ const AddStocks = () => {
               {/* Item Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Item Name
                   </label>
                   <input
@@ -551,29 +713,35 @@ const AddStocks = () => {
                     name="itemName"
                     value={formData.itemName}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    onKeyPress={handleKeyPress}
+                    readOnly
+                    className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
+                    tabIndex="-1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Location
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location *
                   </label>
                   <input
                     type="text"
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-slate-800/50 border ${
-                      errors.location ? 'border-red-500' : 'border-slate-700'
-                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500`}
+                    onKeyPress={handleKeyPress}
                     placeholder="Enter location"
+                    autoComplete="off"
+                    className={`w-full px-4 py-2 bg-white border ${
+                      errors.location ? 'border-red-500' : 'border-blue-300'
+                    } rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    tabIndex="3"
                   />
                   {errors.location && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-red-400 text-sm mt-1"
+                      className="text-red-600 text-sm mt-1"
                     >
                       {errors.location}
                     </motion.p>
@@ -581,7 +749,7 @@ const AddStocks = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Description
                   </label>
                   <input
@@ -589,12 +757,15 @@ const AddStocks = () => {
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    onKeyPress={handleKeyPress}
+                    readOnly
+                    className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
+                    tabIndex="-1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Lower Limit
                   </label>
                   <input
@@ -602,15 +773,19 @@ const AddStocks = () => {
                     name="lowerLimit"
                     value={formData.lowerLimit}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-slate-800/50 border ${
-                      errors.lowerLimit ? 'border-red-500' : 'border-slate-700'
-                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500`}
+                    onKeyPress={handleKeyPress}
+                    min="0"
+                    autoComplete="off"
+                    className={`w-full px-4 py-2 bg-white border ${
+                      errors.lowerLimit ? 'border-red-500' : 'border-blue-300'
+                    } rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    tabIndex="7"
                   />
                   {errors.lowerLimit && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-red-400 text-sm mt-1"
+                      className="text-red-600 text-sm mt-1"
                     >
                       {errors.lowerLimit}
                     </motion.p>
@@ -618,35 +793,41 @@ const AddStocks = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Current Stock
                   </label>
                   <input
                     type="text"
                     value={formData.currentStock}
                     readOnly
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
+                    tabIndex="-1"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    New Stock
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Stock *
                   </label>
                   <input
                     type="number"
                     name="newStock"
                     value={formData.newStock}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-slate-800/50 border ${
-                      errors.newStock ? 'border-red-500' : 'border-slate-700'
-                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500`}
+                    onKeyPress={handleKeyPress}
+                    min="0"
+                    placeholder="Enter quantity to add"
+                    autoComplete="off"
+                    className={`w-full px-4 py-2 bg-white border ${
+                      errors.newStock ? 'border-red-500' : 'border-blue-300'
+                    } rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    tabIndex="4"
                   />
                   {errors.newStock && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-red-400 text-sm mt-1"
+                      className="text-red-600 text-sm mt-1"
                     >
                       {errors.newStock}
                     </motion.p>
@@ -654,33 +835,43 @@ const AddStocks = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Purchase Price Rs.
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Purchase Price Rs. *
                   </label>
                   <input
                     type="number"
                     name="purchasePrice"
                     value={formData.purchasePrice}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    onKeyPress={handleKeyPress}
+                    min="0"
+                    step="0.01"
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="5"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
-                    Retail Price Rs.
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Retail Price Rs. *
                   </label>
                   <input
                     type="number"
                     name="retailPrice"
                     value={formData.retailPrice}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    onKeyPress={handleKeyPress}
+                    min="0"
+                    step="0.01"
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="6"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Item Discount %
                   </label>
                   <input
@@ -688,15 +879,20 @@ const AddStocks = () => {
                     name="itemDiscount"
                     value={formData.itemDiscount}
                     onChange={handleChange}
-                    className={`w-full px-4 py-2 bg-slate-800/50 border ${
-                      errors.itemDiscount ? 'border-red-500' : 'border-slate-700'
-                    } rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500`}
+                    onKeyPress={handleKeyPress}
+                    min="0"
+                    max="100"
+                    autoComplete="off"
+                    className={`w-full px-4 py-2 bg-white border ${
+                      errors.itemDiscount ? 'border-red-500' : 'border-blue-300'
+                    } rounded-lg text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    tabIndex="7"
                   />
                   {errors.itemDiscount && (
                     <motion.p
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="text-red-400 text-sm mt-1"
+                      className="text-red-600 text-sm mt-1"
                     >
                       {errors.itemDiscount}
                     </motion.p>
@@ -710,18 +906,22 @@ const AddStocks = () => {
                   whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={() => setShowNewItemModal(true)}
-                  className="text-slate-300 hover:text-white flex items-center gap-2"
+                  title="Add new item to inventory (Ctrl+N)"
+                  className="text-blue-600 hover:text-blue-800 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg px-2 py-1"
+                  tabIndex="9"
                 >
                   <FiPlus className="w-4 h-4" />
                   Add new item to inventory
                 </motion.button>
 
                 <motion.button
+                  ref={submitButtonRef}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-gradient-to-r from-slate-700 to-slate-800 text-white rounded-lg hover:from-slate-800 hover:to-slate-700 focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 border border-slate-600"
+                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 border border-blue-600 focus:outline-none"
+                  tabIndex="8"
                 >
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -737,15 +937,15 @@ const AddStocks = () => {
 
       {/* Validation Modal */}
       {showValidationModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border-2 border-blue-200 shadow-lg"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-slate-300 flex items-center">
-                <FiAlertCircle className="text-red-400 mr-2" />
+              <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                <FiAlertCircle className="text-red-600 mr-2" />
                 Validation Errors
               </h3>
               <div className="flex space-x-2">
@@ -777,14 +977,15 @@ const AddStocks = () => {
 
                     XLSX.writeFile(wb, `stock_validation_errors_${new Date().toISOString().split('T')[0]}.xlsx`);
                   }}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <FiDownload className="text-lg" />
                   <span>Download Errors</span>
                 </motion.button>
                 <button
                   onClick={() => setShowValidationModal(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-gray-600 hover:text-gray-800 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  aria-label="Close modal"
                 >
                   ×
                 </button>
@@ -792,9 +993,9 @@ const AddStocks = () => {
             </div>
             <div className="space-y-4">
               {validationErrors.map((error, index) => (
-                <div key={index} className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-red-400 font-medium mb-2">Row {error.row} - {error.item}:</p>
-                  <ul className="list-disc list-inside text-slate-300 space-y-1">
+                <div key={index} className="bg-red-50 rounded-lg p-4 border border-red-200">
+                  <p className="text-red-700 font-medium mb-2">Row {error.row} - {error.item}:</p>
+                  <ul className="list-disc list-inside text-gray-700 space-y-1">
                     {error.errors.map((err, errIndex) => (
                       <li key={errIndex}>{err}</li>
                     ))}
@@ -807,7 +1008,7 @@ const AddStocks = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowValidationModal(false)}
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Close
               </motion.button>

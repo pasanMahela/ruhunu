@@ -1,5 +1,6 @@
 const Item = require('../models/Item');
 const { validateItem, validateStockUpdate } = require('../utils/validators');
+const { createActivityLog, createStockEditLog } = require('./logs');
 
 // Get all items with search and filtering
 exports.getItems = async (req, res) => {
@@ -64,6 +65,27 @@ exports.createItem = async (req, res) => {
 
     const item = new Item(req.body);
     await item.save();
+
+    // Create activity log
+    try {
+      await createActivityLog({
+        user: req.user._id,
+        userName: req.user.name,
+        activity: 'Item Created',
+        description: `New item "${item.name}" (${item.itemCode}) created`,
+        relatedEntity: {
+          entityType: 'item',
+          entityId: item._id
+        },
+        metadata: {
+          itemCode: item.itemCode,
+          itemName: item.name,
+          initialStock: item.quantityInStock
+        }
+      });
+    } catch (logError) {
+      console.error('Error creating activity log:', logError);
+    }
 
     res.status(201).json(item);
   } catch (error) {
@@ -153,9 +175,68 @@ exports.updateStock = async (req, res) => {
       }
     }
 
+    const oldQuantity = item.quantityInStock;
+    
     // Update quantity
     item.quantityInStock = newQuantity;
     await item.save();
+
+    // Create stock edit log
+    try {
+      await createStockEditLog({
+        user: req.user._id,
+        userName: req.user.name,
+        item: item._id,
+        itemCode: item.itemCode,
+        itemName: item.name,
+        operation: 'stock_update',
+        currentStock: {
+          oldValue: oldQuantity,
+          newValue: newQuantity
+        },
+        purchaseQuantity: operation === 'add' ? quantity : 0,
+        purchasePrice: {
+          oldValue: item.purchasePrice || 0,
+          newValue: item.purchasePrice || 0
+        },
+        retailPrice: {
+          oldValue: item.sellingPrice || 0,
+          newValue: item.sellingPrice || 0
+        },
+        discount: {
+          oldValue: item.discount || 0,
+          newValue: item.discount || 0
+        },
+        reason: `Manual stock ${operation}`,
+        relatedTransaction: null
+      });
+    } catch (logError) {
+      console.error('Error creating stock edit log:', logError);
+    }
+
+    // Create activity log
+    try {
+      await createActivityLog({
+        user: req.user._id,
+        userName: req.user.name,
+        activity: 'Stock Updated',
+        description: `Stock ${operation} for "${item.name}" (${item.itemCode}): ${oldQuantity} → ${newQuantity}`,
+        relatedEntity: {
+          entityType: 'item',
+          entityId: item._id
+        },
+        metadata: {
+          itemCode: item.itemCode,
+          itemName: item.name,
+          operation: operation,
+          quantity: quantity,
+          oldStock: oldQuantity,
+          newStock: newQuantity
+        }
+      });
+    } catch (logError) {
+      console.error('Error creating activity log:', logError);
+    }
 
     res.json(item);
   } catch (error) {

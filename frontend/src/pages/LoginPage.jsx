@@ -30,51 +30,29 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Storm clouds background */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Subtle floating particles background */}
       <div className="absolute inset-0 overflow-hidden">
-        {[...Array(10)].map((_, i) => (
+        {[...Array(8)].map((_, i) => (
           <motion.div
             key={i}
-            className="absolute rounded-full bg-slate-700/20"
+            className="absolute rounded-full bg-blue-200/20"
             style={{
-              width: Math.random() * 400 + 100,
+              width: Math.random() * 200 + 50,
               height: Math.random() * 200 + 50,
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
-              filter: 'blur(20px)',
+              filter: 'blur(15px)',
             }}
             animate={{
-              x: [0, Math.random() * 100 - 50],
-              y: [0, Math.random() * 50 - 25],
-              scale: [1, 1.1, 1],
+              x: [0, Math.random() * 60 - 30],
+              y: [0, Math.random() * 60 - 30],
+              scale: [1, 1.2, 1],
             }}
             transition={{
-              duration: Math.random() * 20 + 20,
+              duration: Math.random() * 15 + 15,
               repeat: Infinity,
               repeatType: "reverse",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Rain effect */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(30)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-0.5 h-20 bg-slate-400/30"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `-${Math.random() * 100}%`,
-            }}
-            animate={{
-              y: ['0%', '100%'],
-            }}
-            transition={{
-              duration: Math.random() * 1 + 0.5,
-              repeat: Infinity,
-              delay: Math.random() * 2,
             }}
           />
         ))}
@@ -85,19 +63,19 @@ const LoginPage = () => {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
       >
-        <div className="bg-slate-800/90 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-slate-700">
+        <div className="bg-white/95 backdrop-blur-md p-8 rounded-2xl shadow-2xl border-2 border-blue-200">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 bg-clip-text text-transparent">
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text text-transparent">
               Welcome Back
             </h2>
-            <p className="text-slate-300 mt-2">Please sign in to continue</p>
+            <p className="text-gray-600 mt-2">Please sign in to continue</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
                 htmlFor="email"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Email
               </label>
@@ -106,7 +84,7 @@ const LoginPage = () => {
                 id="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-slate-600 bg-slate-900/50 text-white placeholder-slate-400/50 focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-200"
+                className="w-full px-4 py-3 rounded-lg border-2 border-blue-200 bg-white text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 placeholder="Enter your email"
                 required
               />
@@ -115,7 +93,7 @@ const LoginPage = () => {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-medium text-slate-300 mb-2"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Password
               </label>
@@ -124,7 +102,7 @@ const LoginPage = () => {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-slate-600 bg-slate-900/50 text-white placeholder-slate-400/50 focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-200"
+                className="w-full px-4 py-3 rounded-lg border-2 border-blue-200 bg-white text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 placeholder="Enter your password"
                 required
               />
@@ -135,7 +113,7 @@ const LoginPage = () => {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-slate-700 to-slate-800 text-white py-3 rounded-lg font-medium hover:from-slate-800 hover:to-slate-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Signing in...' : 'Sign In'}
             </motion.button>

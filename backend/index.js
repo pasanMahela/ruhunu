@@ -6,6 +6,9 @@ const items = require('./routes/items');
 const cartRoutes = require('./routes/cart');
 const salesRoutes = require('./routes/sales');
 const dashboardRoutes = require('./routes/dashboard');
+const customerRoutes = require('./routes/customers');
+const logsRoutes = require('./routes/logs');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 
@@ -53,7 +56,10 @@ app.use('/api/categories', require('./routes/categories'));
 app.use('/api/cart', cartRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/customers', customerRoutes);
 app.use('/api/item-balance', require('./routes/itemBalance'));
+app.use('/api/logs', logsRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

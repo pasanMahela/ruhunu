@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { createActivityLog } = require('./logs');
 
 // Generate JWT token
 const generateToken = (id) => {
@@ -31,6 +32,20 @@ const login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Create activity log for successful login
+    try {
+      await createActivityLog({
+        user: user._id,
+        userName: user.name,
+        activity: 'User Login',
+        description: `User ${user.name} logged into the system`,
+        ipAddress: req.ip || req.connection.remoteAddress,
+        userAgent: req.headers['user-agent']
+      });
+    } catch (logError) {
+      console.error('Error creating login activity log:', logError);
     }
 
     res.json({

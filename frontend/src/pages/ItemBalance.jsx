@@ -4,6 +4,7 @@ import { FiSearch, FiDownload, FiFilter, FiX, FiTrendingUp, FiTrendingDown, FiPa
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
+import Loading from '../components/Loading';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../services/api';
 
@@ -177,58 +178,48 @@ const ItemBalance = () => {
   };
 
   const getBalanceColor = (balance) => {
-    if (balance < 0) return 'text-red-400';
-    if (balance === 0) return 'text-yellow-400';
-    return 'text-green-400';
+    if (balance < 0) return 'text-red-600';
+    if (balance === 0) return 'text-yellow-600';
+    return 'text-green-600';
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6 flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="relative w-16 h-16">
-            <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-700 rounded-full"></div>
-            <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-300 rounded-full animate-spin border-t-transparent"></div>
-          </div>
-          <p className="text-slate-300 text-lg">Loading item balance data...</p>
-        </div>
-      </div>
-    );
+    return <Loading message="Loading item balance data..." />;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6 flex items-center justify-center">
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-          <FiX className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className="text-red-400 text-lg">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6 flex items-center justify-center">
+        <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 text-center">
+          <FiX className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <p className="text-red-600 text-lg">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Item Balance Report</h1>
-          <p className="text-slate-300">Track your inventory with last month's purchases, sales, and remaining balance</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Item Balance Report</h1>
+          <p className="text-gray-600">Track your inventory with last month's purchases, sales, and remaining balance</p>
         </div>
 
         {/* Controls */}
-        <div className="bg-slate-800/50 rounded-lg p-6 mb-6">
+        <div className="bg-white/90 rounded-lg p-6 mb-6 border-2 border-blue-200 shadow-lg">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             {/* Search */}
             <div className="flex-1 max-w-md">
               <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600" />
                 <input
                   type="text"
                   placeholder="Search by item code, name, or category..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
             </div>
@@ -238,7 +229,7 @@ const ItemBalance = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <FiFilter className="w-4 h-4" />
               Filters
@@ -263,16 +254,16 @@ const ItemBalance = () => {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="mt-4 pt-4 border-t border-slate-700"
+                className="mt-4 pt-4 border-t border-blue-200"
               >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select
                       name="category"
                       value={filters.category}
                       onChange={handleFilterChange}
-                      className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-3 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">All Categories</option>
                       {categories.map(category => (
@@ -281,24 +272,24 @@ const ItemBalance = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Min Balance</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Min Balance</label>
                     <input
                       type="number"
                       name="minBalance"
                       value={filters.minBalance}
                       onChange={handleFilterChange}
-                      className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-3 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Minimum balance"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-1">Max Balance</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Balance</label>
                     <input
                       type="number"
                       name="maxBalance"
                       value={filters.maxBalance}
                       onChange={handleFilterChange}
-                      className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-3 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Maximum balance"
                     />
                   </div>
@@ -308,7 +299,7 @@ const ItemBalance = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={clearFilters}
-                    className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-500 transition-colors"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Clear Filters
                   </motion.button>
@@ -323,14 +314,14 @@ const ItemBalance = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-slate-800/50 rounded-lg p-6 border border-slate-700"
+            className="bg-white/90 rounded-lg p-6 border-2 border-blue-200 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Total Items</p>
-                <p className="text-2xl font-bold text-white">{filteredAndSortedItems.length}</p>
+                <p className="text-gray-600 text-sm">Total Items</p>
+                <p className="text-2xl font-bold text-gray-800">{filteredAndSortedItems.length}</p>
               </div>
-              <FiPackage className="w-8 h-8 text-slate-400" />
+              <FiPackage className="w-8 h-8 text-blue-600" />
             </div>
           </motion.div>
 
@@ -338,16 +329,16 @@ const ItemBalance = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-slate-800/50 rounded-lg p-6 border border-slate-700"
+            className="bg-white/90 rounded-lg p-6 border-2 border-blue-200 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Total Current Stock</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-gray-600 text-sm">Total Current Stock</p>
+                <p className="text-2xl font-bold text-gray-800">
                   {filteredAndSortedItems.reduce((sum, item) => sum + item.currentStock, 0)}
                 </p>
               </div>
-              <FiTrendingUp className="w-8 h-8 text-green-400" />
+              <FiTrendingUp className="w-8 h-8 text-green-600" />
             </div>
           </motion.div>
 
@@ -355,16 +346,16 @@ const ItemBalance = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-slate-800/50 rounded-lg p-6 border border-slate-700"
+            className="bg-white/90 rounded-lg p-6 border-2 border-blue-200 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Last Month Purchases</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-gray-600 text-sm">Last Month Purchases</p>
+                <p className="text-2xl font-bold text-gray-800">
                   {filteredAndSortedItems.reduce((sum, item) => sum + item.lastMonthPurchases.quantity, 0)}
                 </p>
               </div>
-              <FiShoppingCart className="w-8 h-8 text-blue-400" />
+              <FiShoppingCart className="w-8 h-8 text-blue-600" />
             </div>
           </motion.div>
 
@@ -372,103 +363,103 @@ const ItemBalance = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-slate-800/50 rounded-lg p-6 border border-slate-700"
+            className="bg-white/90 rounded-lg p-6 border-2 border-blue-200 shadow-lg"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Last Month Sales</p>
-                <p className="text-2xl font-bold text-white">
+                <p className="text-gray-600 text-sm">Last Month Sales</p>
+                <p className="text-2xl font-bold text-gray-800">
                   {filteredAndSortedItems.reduce((sum, item) => sum + item.lastMonthSales.quantity, 0)}
                 </p>
               </div>
-              <FiDollarSign className="w-8 h-8 text-yellow-400" />
+              <FiDollarSign className="w-8 h-8 text-yellow-600" />
             </div>
           </motion.div>
         </div>
 
         {/* Table */}
-        <div className="bg-slate-800/50 rounded-lg overflow-hidden border border-slate-700">
+        <div className="bg-white/90 rounded-lg overflow-hidden border-2 border-blue-200 shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-700/50">
+              <thead className="bg-blue-50">
                 <tr>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('itemCode')}
                   >
                     Item Code {getSortIcon('itemCode')}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('name')}
                   >
                     Item Name {getSortIcon('name')}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('category')}
                   >
                     Category {getSortIcon('category')}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('currentStock')}
                   >
                     Current Stock {getSortIcon('currentStock')}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('lastMonthPurchases')}
                   >
                     Last Month Purchases {getSortIcon('lastMonthPurchases')}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('lastMonthSales')}
                   >
                     Last Month Sales {getSortIcon('lastMonthSales')}
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-600/50"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-blue-100"
                     onClick={() => handleSort('remainingBalance')}
                   >
                     Remaining Balance {getSortIcon('remainingBalance')}
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-blue-200">
                 {filteredAndSortedItems.map((item, index) => (
                   <motion.tr
                     key={item._id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    className="hover:bg-slate-700/30 transition-colors"
+                    className="hover:bg-blue-50 transition-colors"
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">
                       {item.itemCode}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {item.name}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                         {item.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {item.currentStock}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       <div>
                         <div className="font-medium">{item.lastMonthPurchases.quantity}</div>
-                        <div className="text-xs text-slate-400">Rs. {item.lastMonthPurchases.value.toFixed(2)}</div>
+                        <div className="text-xs text-gray-600">Rs. {item.lastMonthPurchases.value.toFixed(2)}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       <div>
                         <div className="font-medium">{item.lastMonthSales.quantity}</div>
-                        <div className="text-xs text-slate-400">Rs. {item.lastMonthSales.value.toFixed(2)}</div>
+                        <div className="text-xs text-gray-600">Rs. {item.lastMonthSales.value.toFixed(2)}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -484,8 +475,8 @@ const ItemBalance = () => {
 
           {filteredAndSortedItems.length === 0 && (
             <div className="text-center py-12">
-              <FiPackage className="w-12 h-12 text-slate-400 mx-auto mb-4" />
-              <p className="text-slate-400">No items found matching your criteria</p>
+              <FiPackage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No items found matching your criteria</p>
             </div>
           )}
         </div>

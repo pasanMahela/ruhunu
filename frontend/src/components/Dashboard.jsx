@@ -16,6 +16,7 @@ import {
   ArcElement,
 } from 'chart.js';
 import { Line, Bar, Pie } from 'react-chartjs-2';
+import Loading from './Loading';
 import { API_URL } from '../services/api';
 
 
@@ -31,15 +32,7 @@ ChartJS.register(
   ArcElement
 );
 
-const LoadingSpinner = () => (
-  <div className="flex flex-col items-center justify-center space-y-4">
-    <div className="relative w-16 h-16">
-      <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-700 rounded-full"></div>
-      <div className="absolute top-0 left-0 w-full h-full border-4 border-slate-300 rounded-full animate-spin border-t-transparent"></div>
-    </div>
-    <p className="text-slate-300 text-lg">Loading dashboard data...</p>
-  </div>
-);
+
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -124,18 +117,18 @@ const Dashboard = () => {
       legend: {
         position: 'top',
         labels: {
-          color: '#94a3b8',
+          color: '#4b5563',
         },
       },
     },
     scales: {
       y: {
-        ticks: { color: '#94a3b8' },
-        grid: { color: '#334155' },
+        ticks: { color: '#6b7280' },
+        grid: { color: '#e5e7eb' },
       },
       x: {
-        ticks: { color: '#94a3b8' },
-        grid: { color: '#334155' },
+        ticks: { color: '#6b7280' },
+        grid: { color: '#e5e7eb' },
       },
     },
   };
@@ -146,7 +139,7 @@ const Dashboard = () => {
       legend: {
         position: 'top',
         labels: {
-          color: '#94a3b8',
+          color: '#4b5563',
         },
       },
     },
@@ -175,19 +168,15 @@ const Dashboard = () => {
   const filteredLowStockItems = lowStockItems.filter(item => item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel));
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6 flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
+    return <Loading message="Loading dashboard data..." />;
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6 flex items-center justify-center">
-        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-          <FiAlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <p className="text-red-400 text-lg">{error}</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6 flex items-center justify-center">
+        <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6 text-center">
+          <FiAlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <p className="text-red-600 text-lg">{error}</p>
         </div>
       </div>
     );
@@ -196,12 +185,12 @@ const Dashboard = () => {
   console.log('DEBUG: lowStockItems', lowStockItems);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-7xl mx-auto">
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-3xl font-bold bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 bg-clip-text text-transparent mb-8"
+          className="text-3xl font-bold bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text text-transparent mb-8"
         >
           Dashboard
         </motion.h1>
@@ -212,15 +201,15 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Today's Sales</p>
-                <h3 className="text-2xl font-bold text-slate-200 mt-1">Rs. {stats.todaySales.toFixed(2)}</h3>
+                <p className="text-gray-600 text-sm">Today's Sales</p>
+                <h3 className="text-2xl font-bold text-gray-800 mt-1">Rs. {stats.todaySales.toFixed(2)}</h3>
               </div>
-              <div className="p-3 bg-slate-700/50 rounded-lg">
-                <FiDollarSign className="w-6 h-6 text-slate-300" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FiDollarSign className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </motion.div>
@@ -229,15 +218,15 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Total Sales</p>
-                <h3 className="text-2xl font-bold text-slate-200 mt-1">Rs. {stats.totalSales.toFixed(2)}</h3>
+                <p className="text-gray-600 text-sm">Total Sales</p>
+                <h3 className="text-2xl font-bold text-gray-800 mt-1">Rs. {stats.totalSales.toFixed(2)}</h3>
               </div>
-              <div className="p-3 bg-slate-700/50 rounded-lg">
-                <FiTrendingUp className="w-6 h-6 text-slate-300" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FiTrendingUp className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </motion.div>
@@ -246,15 +235,15 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Total Customers</p>
-                <h3 className="text-2xl font-bold text-slate-200 mt-1">{stats.totalCustomers}</h3>
+                <p className="text-gray-600 text-sm">Total Customers</p>
+                <h3 className="text-2xl font-bold text-gray-800 mt-1">{stats.totalCustomers}</h3>
               </div>
-              <div className="p-3 bg-slate-700/50 rounded-lg">
-                <FiUsers className="w-6 h-6 text-slate-300" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FiUsers className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </motion.div>
@@ -263,15 +252,15 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Inventory Value</p>
-                <h3 className="text-2xl font-bold text-slate-200 mt-1">Rs. {stats.inventoryValue.toFixed(2)}</h3>
+                <p className="text-gray-600 text-sm">Inventory Value</p>
+                <h3 className="text-2xl font-bold text-gray-800 mt-1">Rs. {stats.inventoryValue.toFixed(2)}</h3>
               </div>
-              <div className="p-3 bg-slate-700/50 rounded-lg">
-                <FiPackage className="w-6 h-6 text-slate-300" />
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FiPackage className="w-6 h-6 text-blue-600" />
               </div>
             </div>
           </motion.div>
@@ -283,9 +272,9 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
-            <h3 className="text-xl font-semibold text-slate-300 mb-4">Sales Trend</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Sales Trend</h3>
             <div className="h-80">
               <Line data={salesData} options={salesChartOptions} />
             </div>
@@ -295,9 +284,9 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.6 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
-            <h3 className="text-xl font-semibold text-slate-300 mb-4">Top Selling Items</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Top Selling Items</h3>
             <div className="h-80">
               <Pie data={topSellingItems} options={topSellingChartOptions} />
             </div>
@@ -310,15 +299,15 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-semibold text-slate-300">Low Stock Alerts</h3>
+              <h3 className="text-xl font-semibold text-gray-800">Low Stock Alerts</h3>
               {filteredLowStockItems.length > 3 && (
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="text-slate-400 hover:text-slate-300 flex items-center"
+                  className="text-blue-600 hover:text-blue-800 flex items-center"
                   onClick={() => setShowAllLowStock(true)}
                 >
                   View All <FiArrowRight className="ml-1" />
@@ -331,15 +320,15 @@ const Dashboard = () => {
                   key={item._id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="flex items-center justify-between p-3 bg-slate-700/30 rounded-lg"
+                  className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100"
                 >
                   <div>
-                    <p className="text-slate-200 font-medium">{item.name}</p>
-                    <p className="text-slate-400 text-sm">{item.itemCode}</p>
+                    <p className="text-gray-800 font-medium">{item.name}</p>
+                    <p className="text-gray-600 text-sm">{item.itemCode}</p>
                   </div>
                   <div className="flex items-center">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                      item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
                     }`}>
                       {item.quantityInStock} in stock
                     </span>
@@ -347,7 +336,7 @@ const Dashboard = () => {
                 </motion.div>
               ))}
               {filteredLowStockItems.length === 0 && (
-                <div className="text-slate-400 text-center py-4">No low stock items</div>
+                <div className="text-gray-600 text-center py-4">No low stock items</div>
               )}
             </div>
           </motion.div>
@@ -355,26 +344,26 @@ const Dashboard = () => {
           {/* Modal for all low stock items */}
           {showAllLowStock && (
             <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/10">
-              <div className="bg-slate-800 rounded-lg p-8 w-full max-w-3xl mx-4">
+              <div className="bg-white rounded-lg p-8 w-full max-w-3xl mx-4 border-2 border-blue-200 shadow-lg">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-semibold text-white">All Low Stock Items</h3>
+                  <h3 className="text-2xl font-semibold text-gray-800">All Low Stock Items</h3>
                   <button
                     onClick={() => setShowAllLowStock(false)}
-                    className="text-slate-400 hover:text-white text-2xl font-bold"
+                    className="text-gray-600 hover:text-gray-800 text-2xl font-bold"
                   >
                     &times;
                   </button>
                 </div>
                 <div className="space-y-2 max-h-[70vh] overflow-y-auto">
                   {filteredLowStockItems.map((item) => (
-                    <div key={item._id} className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg">
+                    <div key={item._id} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
                       <div>
-                        <p className="text-slate-200 font-medium text-lg">{item.name}</p>
-                        <p className="text-slate-400 text-sm">{item.itemCode}</p>
+                        <p className="text-gray-800 font-medium text-lg">{item.name}</p>
+                        <p className="text-gray-600 text-sm">{item.itemCode}</p>
                       </div>
                       <div className="flex items-center">
                         <span className={`px-3 py-2 rounded-full text-sm font-medium ${
-                          item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
+                          item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
                         }`}>
                           {item.quantityInStock} in stock
                         </span>
@@ -382,7 +371,7 @@ const Dashboard = () => {
                     </div>
                   ))}
                   {filteredLowStockItems.length === 0 && (
-                    <div className="text-slate-400 text-center py-4">No low stock items</div>
+                    <div className="text-gray-600 text-center py-4">No low stock items</div>
                   )}
                 </div>
               </div>
@@ -393,9 +382,9 @@ const Dashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+            className="bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
           >
-            <h3 className="text-xl font-semibold text-slate-300 mb-4">Recent Activity</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-4">Recent Activity</h3>
             <div className="space-y-4">
               {recentActivity.map((activity, index) => (
                 <motion.div
@@ -403,14 +392,14 @@ const Dashboard = () => {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex items-start space-x-3 p-3 bg-slate-700/30 rounded-lg"
+                  className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg border border-blue-100"
                 >
-                  <div className="p-2 bg-slate-600/50 rounded-lg">
-                    <FiClock className="w-4 h-4 text-slate-300" />
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FiClock className="w-4 h-4 text-blue-600" />
                   </div>
                   <div>
-                    <p className="text-slate-200">{activity.customerName} - Rs. {activity.total.toFixed(2)}</p>
-                    <p className="text-slate-400 text-sm">{new Date(activity.createdAt).toLocaleString()}</p>
+                    <p className="text-gray-800">{activity.customerName} - Rs. {activity.total.toFixed(2)}</p>
+                    <p className="text-gray-600 text-sm">{new Date(activity.createdAt).toLocaleString()}</p>
                   </div>
                 </motion.div>
               ))}
@@ -423,15 +412,15 @@ const Dashboard = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.9 }}
-          className="mt-8 bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700"
+          className="mt-8 bg-white/80 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-md"
         >
-          <h3 className="text-xl font-semibold text-slate-300 mb-4">Quick Actions</h3>
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleQuickAction('new-sale')}
-              className="p-4 bg-slate-700/50 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+              className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-100 hover:text-blue-800 transition-colors duration-200 flex items-center justify-center space-x-2"
             >
               <FiShoppingCart className="w-5 h-5" />
               <span>New Sale</span>
@@ -440,7 +429,7 @@ const Dashboard = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleQuickAction('add-item')}
-              className="p-4 bg-slate-700/50 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+              className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-100 hover:text-blue-800 transition-colors duration-200 flex items-center justify-center space-x-2"
             >
               <FiPackage className="w-5 h-5" />
               <span>Add Item</span>
@@ -449,7 +438,7 @@ const Dashboard = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleQuickAction('reports')}
-              className="p-4 bg-slate-700/50 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+              className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-100 hover:text-blue-800 transition-colors duration-200 flex items-center justify-center space-x-2"
             >
               <FiTrendingUp className="w-5 h-5" />
               <span>Reports</span>
@@ -458,7 +447,7 @@ const Dashboard = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => handleQuickAction('users')}
-              className="p-4 bg-slate-700/50 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors duration-200 flex items-center justify-center space-x-2"
+              className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-600 hover:bg-blue-100 hover:text-blue-800 transition-colors duration-200 flex items-center justify-center space-x-2"
             >
               <FiUsers className="w-5 h-5" />
               <span>Users</span>

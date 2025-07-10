@@ -4,14 +4,21 @@ import Landing from './components/Landing';
 import Dashboard from './components/Dashboard';
 import Inventory from './pages/Inventory';
 import UserManagement from './components/UserManagement';
-import Navbar from './components/Navbar';
+import SideNav from './components/SideNav';
 import Footer from './components/Footer';
 import AddStocks from './pages/AddStocks';
 import LoginPage from './pages/LoginPage';
 import AddNewItem from './pages/AddNewItem';
 import PointOfSale from './pages/PointOfSale';
 import SalesHistory from './pages/SalesHistory';
+import SalesReports from './pages/SalesReports';
+import ItemSalesReport from './pages/ItemSalesReport';
 import ItemBalance from './pages/ItemBalance';
+import ClientManagement from './pages/ClientManagement';
+import SearchPage from './pages/SearchPage';
+import LogsPage from './pages/LogsPage';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import Loading from './components/Loading';
 import { FiArrowLeft } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -22,11 +29,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const navigate = useNavigate();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-slate-400"></div>
-      </div>
-    );
+    return <Loading message="Loading..." />;
   }
 
   if (!user) {
@@ -36,12 +39,14 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   // If allowedRoles is empty, allow all authenticated users
   if (allowedRoles.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Footer />
+      <div className="min-h-screen flex bg-gradient-to-br from-blue-50 to-white">
+        <SideNav />
+        <div className="flex-1 flex flex-col">
+          <main className="flex-grow overflow-y-auto pt-20 md:pt-0">
+            {children}
+          </main>
+          <Footer />
+        </div>
       </div>
     );
   }
@@ -49,16 +54,16 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   // Check if user's role is in allowedRoles
   if (!allowedRoles.includes(user.role)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex flex-col">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex flex-col">
         <main className="flex-grow flex items-center justify-center">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-slate-300">Access Denied</h2>
-            <p className="text-slate-400 mt-2">You don't have permission to access this page.</p>
+            <h2 className="text-2xl font-bold text-gray-800">Access Denied</h2>
+            <p className="text-gray-600 mt-2">You don't have permission to access this page.</p>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate('/pos')}
-              className="mt-6 px-6 py-2 bg-slate-700 text-white rounded-lg flex items-center space-x-2 mx-auto hover:bg-slate-600 transition-colors"
+              className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 mx-auto hover:bg-blue-700 transition-colors"
             >
               <FiArrowLeft className="text-lg" />
               <span>Back to POS</span>
@@ -70,13 +75,15 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     );
   }
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-grow">
-        {children}
-      </main>
-      <Footer />
+    return (
+    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 to-white">
+      <SideNav />
+      <div className="flex-1 flex flex-col">
+        <main className="flex-grow overflow-y-auto pt-20 md:pt-0">
+          {children}
+        </main>
+        <Footer />
+      </div>
     </div>
   );
 };
@@ -132,10 +139,58 @@ const App = () => {
             }
           />
           <Route
+            path="/sales-reports"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <SalesReports />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/item-sales-report"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ItemSalesReport />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/item-balance"
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <ItemBalance />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/clients"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <ClientManagement />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/search"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <SearchPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/logs"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <LogsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AnalyticsDashboard />
               </ProtectedRoute>
             }
           />

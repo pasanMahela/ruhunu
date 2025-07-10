@@ -1,20 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login as apiLogin, getCurrentUser } from '../services/api';
+import Loading from '../components/Loading';
 
 const AuthContext = createContext(null);
 
-// Loading Spinner Component
-const LoadingSpinner = () => (
-  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center">
-    <div className="relative">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-slate-400"></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-        <div className="animate-pulse text-slate-400 text-xs">Loading...</div>
-      </div>
-    </div>
-  </div>
-);
+
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -62,7 +53,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <Loading message="Authenticating..." />;
   }
 
   return (

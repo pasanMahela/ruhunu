@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { FiPlus, FiDownload, FiUpload, FiAlertCircle } from 'react-icons/fi';
 import axios from 'axios';
@@ -52,6 +52,10 @@ const generateResultExcel = (validationResults) => {
 
 const AddNewItem = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+  const submitButtonRef = useRef(null);
+  const nameInputRef = useRef(null);
+  
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -74,7 +78,45 @@ const AddNewItem = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+    
+    // Focus the first input when component mounts
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+
+    // Add keyboard shortcuts
+    const handleKeyDown = (e) => {
+      // Ctrl+S or Cmd+S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (submitButtonRef.current && !loading) {
+          submitButtonRef.current.click();
+        }
+      }
+      
+      // Ctrl+T or Cmd+T to download template
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+        e.preventDefault();
+        downloadTemplate();
+      }
+      
+      // Ctrl+U or Cmd+U to upload file
+      if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+        e.preventDefault();
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }
+      
+      // Escape to cancel/navigate back
+      if (e.key === 'Escape') {
+        navigate('/inventory');
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [loading, navigate]);
 
   
   const BACKEND_API_URL = API_URL;
@@ -100,6 +142,26 @@ const AddNewItem = () => {
     }));
   };
 
+  // Handle Enter key on form inputs
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      
+      // Find the next focusable element
+      const form = e.target.form;
+      const formElements = Array.from(form.elements);
+      const currentIndex = formElements.indexOf(e.target);
+      const nextElement = formElements[currentIndex + 1];
+      
+      if (nextElement && nextElement.type !== 'submit') {
+        nextElement.focus();
+      } else if (submitButtonRef.current) {
+        // If no next element or next is submit, focus submit button
+        submitButtonRef.current.focus();
+      }
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -111,6 +173,11 @@ const AddNewItem = () => {
       retailPrice: 0,
       discount: 0
     });
+    
+    // Focus the name input after reset
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -181,7 +248,7 @@ const AddNewItem = () => {
 
     // Generate and download file
     XLSX.writeFile(wb, 'item_import_template.xlsx');
-    toast.success('Template downloaded successfully');
+    toast.success('Template downloaded successfully (Ctrl+T)');
   };
 
   const validateItemData = (data) => {
@@ -337,16 +404,16 @@ const AddNewItem = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       {loading || uploadLoading ? (
         <div className="min-h-screen flex flex-col items-center justify-center">
           {uploadLoading && (
             <div className="w-full max-w-md space-y-4 px-4">
-              <div className="flex justify-between text-sm text-slate-400 mb-2">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>{uploadStatus}</span>
                 <span>{uploadProgress}%</span>
               </div>
-              <div className="w-full bg-slate-700 rounded-full h-2.5">
+              <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${uploadProgress}%` }}
@@ -367,7 +434,7 @@ const AddNewItem = () => {
                 repeat: Infinity,
                 ease: "linear",
               }}
-              className="w-16 h-16 border-4 border-slate-600 border-t-slate-400 rounded-full"
+              className="w-16 h-16 border-4 border-blue-300 border-t-blue-600 rounded-full"
             />
           )}
         </div>
@@ -377,30 +444,52 @@ const AddNewItem = () => {
           animate={{ opacity: 1, y: 0 }}
           className="max-w-4xl mx-auto"
         >
-          <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl p-6 border border-slate-700 mb-6">
+          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-lg mb-6">
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 bg-clip-text text-transparent">
-                Add New Item
-              </h1>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent">
+                  Add New Item
+                </h1>
+                <p className="text-sm text-gray-600 mt-1">
+                  Keyboard shortcuts: <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded">Ctrl+S</kbd> Save, 
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+T</kbd> Template, 
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+U</kbd> Upload, 
+                  <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Esc</kbd> Cancel
+                </p>
+              </div>
               <div className="flex space-x-3">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={downloadTemplate}
-                  className="px-4 py-2 bg-slate-700/50 text-white rounded-lg flex items-center space-x-2 hover:bg-slate-700 transition-colors"
+                  title="Download Template (Ctrl+T)"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  tabIndex="0"
                 >
                   <FiDownload className="text-lg" />
                   <span>Download Template</span>
                 </motion.button>
-                <label className="px-4 py-2 bg-slate-700/50 text-white rounded-lg flex items-center space-x-2 hover:bg-slate-700 transition-colors cursor-pointer">
+                <label 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
+                  title="Upload Excel File (Ctrl+U)"
+                  tabIndex="0"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }
+                  }}
+                >
                   <FiUpload className="text-lg" />
                   <span>Upload Excel</span>
                   <input
+                    ref={fileInputRef}
                     key={fileInputKey}
                     type="file"
                     accept=".xlsx,.xls"
                     onChange={handleFileUpload}
                     className="hidden"
+                    tabIndex="-1"
                   />
                 </label>
               </div>
@@ -411,27 +500,31 @@ const AddNewItem = () => {
                 <div>
                   <label
                     htmlFor="name"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
-                    Name
+                    Name *
                   </label>
                   <input
+                    ref={nameInputRef}
                     type="text"
                     id="name"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     required
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="1"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="category"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
-                    Category
+                    Category *
                   </label>
                   <div className="flex gap-2">
                     <select
@@ -439,8 +532,10 @@ const AddNewItem = () => {
                       name="category"
                       value={formData.category}
                       onChange={handleChange}
+                      onKeyPress={handleKeyPress}
                       required
-                      className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="flex-1 px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="2"
                     >
                       <option value="">Select a category</option>
                       {categories.map((category) => (
@@ -452,7 +547,9 @@ const AddNewItem = () => {
                     <button
                       type="button"
                       onClick={() => setIsCategoryModalOpen(true)}
-                      className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                      title="Add new category"
+                      className="px-4 py-2 bg-blue-50 border border-blue-300 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      tabIndex="3"
                     >
                       <FiPlus size={20} />
                     </button>
@@ -462,7 +559,7 @@ const AddNewItem = () => {
                 <div>
                   <label
                     htmlFor="location"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
                     Location
                   </label>
@@ -472,14 +569,17 @@ const AddNewItem = () => {
                     name="location"
                     value={formData.location}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    onKeyPress={handleKeyPress}
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="4"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="lowerLimit"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
                     Lower Limit
                   </label>
@@ -489,17 +589,20 @@ const AddNewItem = () => {
                     name="lowerLimit"
                     value={formData.lowerLimit}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     min="0"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="5"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="purchasePrice"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
-                    Purchase Price
+                    Purchase Price *
                   </label>
                   <input
                     type="number"
@@ -507,18 +610,22 @@ const AddNewItem = () => {
                     name="purchasePrice"
                     value={formData.purchasePrice}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     min="0"
                     step="0.01"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    required
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="6"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="retailPrice"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
-                    Retail Price
+                    Retail Price *
                   </label>
                   <input
                     type="number"
@@ -526,16 +633,20 @@ const AddNewItem = () => {
                     name="retailPrice"
                     value={formData.retailPrice}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     min="0"
                     step="0.01"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    required
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="7"
                   />
                 </div>
 
                 <div>
                   <label
                     htmlFor="discount"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
                     Discount (%)
                   </label>
@@ -545,9 +656,12 @@ const AddNewItem = () => {
                     name="discount"
                     value={formData.discount}
                     onChange={handleChange}
+                    onKeyPress={handleKeyPress}
                     min="0"
                     max="100"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    autoComplete="off"
+                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    tabIndex="8"
                   />
                 </div>
               </div>
@@ -555,7 +669,7 @@ const AddNewItem = () => {
               <div>
                 <label
                   htmlFor="description"
-                  className="block text-slate-300 text-sm font-medium mb-2"
+                  className="block text-gray-700 text-sm font-medium mb-2"
                 >
                   Description
                 </label>
@@ -565,7 +679,9 @@ const AddNewItem = () => {
                   value={formData.description}
                   onChange={handleChange}
                   rows="3"
-                  className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                  autoComplete="off"
+                  className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  tabIndex="9"
                 />
               </div>
 
@@ -575,16 +691,19 @@ const AddNewItem = () => {
                   whileTap={{ scale: 0.98 }}
                   type="button"
                   onClick={() => navigate('/inventory')}
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  tabIndex="10"
                 >
                   Cancel
                 </motion.button>
                 <motion.button
+                  ref={submitButtonRef}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  tabIndex="11"
                 >
                   Create Item
                 </motion.button>
@@ -596,15 +715,15 @@ const AddNewItem = () => {
 
       {/* Validation Modal */}
       {showValidationModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800 rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border-2 border-blue-200 shadow-lg"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-slate-300 flex items-center">
-                <FiAlertCircle className="text-red-400 mr-2" />
+              <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                <FiAlertCircle className="text-red-600 mr-2" />
                 Validation Errors
               </h3>
               <div className="flex space-x-2">
@@ -638,14 +757,15 @@ const AddNewItem = () => {
                     // Download file
                     XLSX.writeFile(wb, `validation_errors_${new Date().toISOString().split('T')[0]}.xlsx`);
                   }}
-                  className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors flex items-center space-x-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <FiDownload className="text-lg" />
                   <span>Download Errors</span>
                 </motion.button>
                 <button
                   onClick={() => setShowValidationModal(false)}
-                  className="text-slate-400 hover:text-white"
+                  className="text-gray-600 hover:text-gray-800 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                  aria-label="Close modal"
                 >
                   ×
                 </button>
@@ -653,9 +773,9 @@ const AddNewItem = () => {
             </div>
             <div className="space-y-4">
               {validationErrors.map((error, index) => (
-                <div key={index} className="bg-slate-700/50 rounded-lg p-4">
-                  <p className="text-red-400 font-medium mb-2">Row {error.row} - {error.item}:</p>
-                  <ul className="list-disc list-inside text-slate-300 space-y-1">
+                <div key={index} className="bg-red-50 rounded-lg p-4 border border-red-200">
+                  <p className="text-red-700 font-medium mb-2">Row {error.row} - {error.item}:</p>
+                  <ul className="list-disc list-inside text-gray-700 space-y-1">
                     {error.errors.map((err, errIndex) => (
                       <li key={errIndex}>{err}</li>
                     ))}
@@ -668,7 +788,7 @@ const AddNewItem = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowValidationModal(false)}
-                className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Close
               </motion.button>

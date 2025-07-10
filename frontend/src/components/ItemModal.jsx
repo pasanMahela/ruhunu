@@ -149,16 +149,16 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-slate-800/90 backdrop-blur-sm rounded-xl shadow-2xl border border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+              className="bg-white backdrop-blur-sm rounded-xl shadow-2xl border-2 border-blue-200 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-between items-center p-4 border-b border-slate-700">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 bg-clip-text text-transparent">
+              <div className="flex justify-between items-center p-4 border-b-2 border-blue-200">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent">
                   {item ? 'Edit Item' : 'Add New Item'}
                 </h2>
                 <button
                   onClick={onClose}
-                  className="text-slate-400 hover:text-slate-300 transition-colors"
+                  className="text-gray-600 hover:text-gray-800 transition-colors"
                 >
                   <FiX size={24} />
                 </button>
@@ -169,7 +169,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                   <div>
                     <label
                       htmlFor="name"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Name
                     </label>
@@ -180,14 +180,14 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       value={formData.name}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="category"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Category
                     </label>
@@ -198,7 +198,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                         value={formData.category}
                         onChange={handleChange}
                         required
-                        className="flex-1 px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                        className="flex-1 px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">Select a category</option>
                         {categories.map((category) => (
@@ -210,7 +210,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       <button
                         type="button"
                         onClick={() => setIsCategoryModalOpen(true)}
-                        className="px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                        className="px-4 py-2 bg-blue-50 border-2 border-blue-200 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors"
                       >
                         <FiPlus size={20} />
                       </button>
@@ -220,7 +220,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                   <div>
                     <label
                       htmlFor="location"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Location
                     </label>
@@ -230,14 +230,14 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       name="location"
                       value={formData.location}
                       onChange={handleChange}
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="lowerLimit"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Lower Limit
                     </label>
@@ -249,14 +249,14 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       onChange={handleChange}
                       min="0"
                       step="1"
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="purchasePrice"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Purchase Price
                     </label>
@@ -268,14 +268,14 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       onChange={handleChange}
                       min="0"
                       step="0.01"
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="retailPrice"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Retail Price
                     </label>
@@ -287,14 +287,14 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       onChange={handleChange}
                       min="0"
                       step="0.01"
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor="discount"
-                      className="block text-slate-300 text-sm font-medium mb-2"
+                      className="block text-gray-700 text-sm font-medium mb-2"
                     >
                       Discount (%)
                     </label>
@@ -307,7 +307,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       min="0"
                       max="100"
                       step="1"
-                      className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
                 </div>
@@ -315,7 +315,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                 <div className="mt-6">
                   <label
                     htmlFor="description"
-                    className="block text-slate-300 text-sm font-medium mb-2"
+                    className="block text-gray-700 text-sm font-medium mb-2"
                   >
                     Description
                   </label>
@@ -325,7 +325,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                     value={formData.description}
                     onChange={handleChange}
                     rows="3"
-                    className="w-full px-4 py-2 bg-slate-700/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500"
+                    className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
 
@@ -333,14 +333,14 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                   <button
                     type="button"
                     onClick={onClose}
-                    className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white bg-slate-700/50 hover:bg-slate-700 rounded-lg transition-colors"
+                    className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Saving...' : item ? 'Update Item' : 'Create Item'}
                   </button>

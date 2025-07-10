@@ -5,6 +5,7 @@ import Toast from './Toast';
 import AddUserModal from './AddUserModal';
 import EditUserModal from './EditUserModal';
 import ConfirmModal from './ConfirmModal';
+import Loading from './Loading';
 import { API_URL } from '../services/api';
 
 const UserAvatar = ({ name, role }) => {
@@ -127,49 +128,34 @@ const UserManagement = () => {
 
   if (!currentUser?.role === 'admin') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-300">Access Denied</h2>
-          <p className="text-slate-400 mt-2">Only administrators can access this page.</p>
+          <h2 className="text-2xl font-bold text-gray-800">Access Denied</h2>
+          <p className="text-gray-600 mt-2">Only administrators can access this page.</p>
         </div>
       </div>
     );
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex items-center justify-center">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-          className="w-16 h-16 border-4 border-slate-600 border-t-slate-400 rounded-full"
-        />
-      </div>
-    );
+    return <Loading message="Loading users..." />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent">
               User Management
             </h2>
-            <p className="text-slate-400 mt-2">Manage your platform users</p>
+            <p className="text-gray-600 mt-2">Manage your platform users</p>
           </div>
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={() => setShowAddModal(true)}
-            className="w-full sm:w-auto bg-gradient-to-r from-slate-700 to-slate-800 text-white px-6 py-3 rounded-lg font-medium hover:from-slate-800 hover:to-slate-700 transition-all duration-200 shadow-lg hover:shadow-xl border border-slate-600"
+            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl border-2 border-blue-500"
           >
             Add New User
           </motion.button>
@@ -183,11 +169,11 @@ const UserManagement = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search users by name, email, or role..."
-                className="w-full px-4 py-2 pl-10 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500 transition-all duration-200"
+                className="w-full px-4 py-2 pl-10 bg-white border-2 border-blue-200 rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                 aria-label="Search users"
               />
               <svg
-                className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2 group-focus-within:text-slate-300 transition-colors duration-200"
+                className="w-5 h-5 text-gray-600 absolute left-3 top-1/2 transform -translate-y-1/2 group-focus-within:text-blue-600 transition-colors duration-200"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -205,7 +191,7 @@ const UserManagement = () => {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500 transition-all duration-200"
+              className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
               aria-label="Filter by role"
             >
               <option value="all">All Roles</option>
@@ -215,32 +201,32 @@ const UserManagement = () => {
           </div>
         </div>
 
-        <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl shadow-lg border border-slate-700 overflow-hidden">
+        <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border-2 border-blue-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-slate-700/50">
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                <tr className="bg-blue-100">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Role
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Created At
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700">
+              <tbody className="divide-y divide-blue-200">
                 <AnimatePresence mode="popLayout">
                   {filteredUsers.map((user) => (
                     <motion.tr
@@ -249,22 +235,22 @@ const UserManagement = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       transition={{ duration: 0.2 }}
-                      className="hover:bg-slate-700/30 transition-colors duration-200"
+                      className="hover:bg-blue-50 transition-colors duration-200"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-3">
                           <UserAvatar name={user.name} role={user.role} />
-                          <div className="text-sm font-medium text-white">{user.name}</div>
+                          <div className="text-sm font-medium text-gray-800">{user.name}</div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-300">{user.email}</div>
+                        <div className="text-sm text-gray-700">{user.email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           user.role === 'admin' 
-                            ? 'bg-slate-700/50 text-slate-300' 
-                            : 'bg-slate-600/50 text-slate-400'
+                            ? 'bg-blue-100 text-blue-700' 
+                            : 'bg-gray-100 text-gray-700'
                         }`}>
                           {user.role}
                         </span>
@@ -272,14 +258,14 @@ const UserManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           user.isActive 
-                            ? 'bg-slate-600/50 text-slate-300' 
-                            : 'bg-slate-700/50 text-slate-400'
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-red-100 text-red-700'
                         }`}>
                           {user.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-slate-300">
+                        <div className="text-sm text-gray-700">
                           {new Date(user.createdAt).toLocaleDateString()}
                         </div>
                       </td>
@@ -290,7 +276,7 @@ const UserManagement = () => {
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
                               onClick={() => handleEdit(user)}
-                              className="text-slate-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded px-2 py-1"
+                              className="text-blue-600 hover:text-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1"
                               aria-label={`Edit ${user.name}`}
                             >
                               Edit
@@ -301,9 +287,9 @@ const UserManagement = () => {
                               onClick={() => handleStatusToggle(user)}
                               className={`${
                                 user.isActive 
-                                  ? 'text-slate-400 hover:text-slate-300' 
-                                  : 'text-slate-300 hover:text-white'
-                              } focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-900 rounded px-2 py-1`}
+                                  ? 'text-red-600 hover:text-red-800' 
+                                  : 'text-green-600 hover:text-green-800'
+                              } focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded px-2 py-1`}
                               aria-label={`${user.isActive ? 'Deactivate' : 'Activate'} ${user.name}`}
                             >
                               {user.isActive ? 'Deactivate' : 'Activate'}
