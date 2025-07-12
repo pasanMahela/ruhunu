@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import PageHeader from '../components/PageHeader';
 
 const ItemSalesReport = () => {
   const { user } = useAuth();
@@ -286,47 +287,40 @@ const ItemSalesReport = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
-      <div className="bg-white border-b border-blue-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-blue-800 flex items-center">
-                <FiPackage className="mr-3" />
-                Item Sales Report
-              </h1>
-              <p className="text-gray-600 mt-1">Individual product performance and transaction history</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-              >
-                <FiFilter size={16} />
-                {showFilters ? 'Hide' : 'Show'} Filters
-              </button>
-              <button
-                onClick={exportToCSV}
-                disabled={salesData.length === 0}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                <FiDownload size={16} />
-                Export CSV
-              </button>
-              <button
-                onClick={printReport}
-                disabled={salesData.length === 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                <FiPrinter size={16} />
-                Print Report
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader 
+        title="Item Sales Report" 
+        subtitle="Individual product performance and transaction history"
+        icon={FiPackage}
+      />
 
       <div className="max-w-7xl mx-auto p-6">
+        {/* Action Buttons */}
+        <div className="flex justify-end items-center gap-4 mb-6">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+          >
+            <FiFilter size={16} />
+            {showFilters ? 'Hide' : 'Show'} Filters
+          </button>
+          <button
+            onClick={exportToCSV}
+            disabled={salesData.length === 0}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <FiDownload size={16} />
+            Export CSV
+          </button>
+          <button
+            onClick={printReport}
+            disabled={salesData.length === 0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <FiPrinter size={16} />
+            Print Report
+          </button>
+        </div>
+
         {/* Filters Section */}
         {showFilters && (
           <motion.div

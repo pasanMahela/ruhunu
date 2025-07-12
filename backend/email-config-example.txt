@@ -1,0 +1,18 @@
+# Email Configuration for Sales Reports
+# Add these variables to your .env file:
+
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=your-email@gmail.com
+
+# For Gmail, you need to:
+# 1. Enable 2-factor authentication
+# 2. Generate an app password
+# 3. Use the app password in SMTP_PASS (not your regular password)
+
+# Other email providers:
+# Outlook: smtp-mail.outlook.com, port 587
+# Yahoo: smtp.mail.yahoo.com, port 587
+# Custom SMTP: contact your email provider for settings 

@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { format, isWithinInterval, parseISO } from 'date-fns';
-import { FiSearch, FiEye, FiPrinter, FiCalendar } from 'react-icons/fi';
+import { FiSearch, FiEye, FiPrinter, FiCalendar, FiShoppingCart } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import Loading from '../components/Loading';
 import { API_URL } from '../services/api';
+import PageHeader from '../components/PageHeader';
 
 const SalesHistory = () => {
   const [sales, setSales] = useState([]);
@@ -233,11 +234,16 @@ const SalesHistory = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+      <PageHeader 
+        title="Sales History" 
+        subtitle="View and manage all sales transactions"
+        icon={FiShoppingCart}
+      />
+
       <div className="container mx-auto px-4 py-8">
         <div className="bg-white/90 rounded-lg shadow-lg p-6 mb-6 border-2 border-blue-200">
           <div className="flex flex-col gap-4">
             <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-gray-800">Sales History</h1>
               <div className="flex gap-4">
                 <div className="flex items-center gap-2">
                   <FiCalendar className="text-gray-600" />

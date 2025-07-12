@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { FiPlus, FiDownload, FiUpload, FiAlertCircle } from 'react-icons/fi';
+import { FiPlus, FiDownload, FiUpload, FiAlertCircle, FiPackage, FiFile, FiCheck, FiX, FiEye, FiTrash2 } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import CategoryModal from '../components/CategoryModal';
 import * as XLSX from 'xlsx';
 import { API_URL } from '../services/api';
+import PageHeader from '../components/PageHeader';
 
 const generateResultExcel = (validationResults) => {
   // Create workbook with multiple sheets
@@ -75,6 +76,15 @@ const AddNewItem = () => {
   const [validationErrors, setValidationErrors] = useState([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [fileInputKey, setFileInputKey] = useState(Date.now());
+  
+  // Bulk upload states
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [previewData, setPreviewData] = useState([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [validItems, setValidItems] = useState([]);
+  const [invalidItems, setInvalidItems] = useState([]);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -100,12 +110,10 @@ const AddNewItem = () => {
         downloadTemplate();
       }
       
-      // Ctrl+U or Cmd+U to upload file
+      // Ctrl+U or Cmd+U to open bulk upload
       if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
         e.preventDefault();
-        if (fileInputRef.current) {
-          fileInputRef.current.click();
-        }
+        setShowBulkUpload(true);
       }
       
       // Escape to cancel/navigate back
@@ -131,6 +139,20 @@ const AddNewItem = () => {
     } catch (error) {
       console.error('Error fetching categories:', error);
       toast.error('Failed to fetch categories');
+    }
+  };
+
+  const fetchExistingItems = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(BACKEND_API_URL+'/items', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      return response.data.data || [];
+    } catch (error) {
+      console.error('Error fetching existing items:', error);
+      toast.error('Failed to fetch existing items for validation');
+      return [];
     }
   };
 
@@ -251,7 +273,7 @@ const AddNewItem = () => {
     toast.success('Template downloaded successfully (Ctrl+T)');
   };
 
-  const validateItemData = (data) => {
+  const validateItemData = async (data, existingItems = []) => {
     const errors = [];
     const requiredFields = ['Name', 'Category', 'Purchase Price', 'Retail Price'];
     
@@ -261,6 +283,16 @@ const AddNewItem = () => {
         errors.push(`${field} is required`);
       }
     });
+
+    // Check if item name already exists in the system
+    if (data['Name']) {
+      const itemExists = existingItems.some(item => 
+        item.name.toLowerCase() === data['Name'].toLowerCase()
+      );
+      if (itemExists) {
+        errors.push(`Item with name "${data['Name']}" already exists in the system`);
+      }
+    }
 
     // Validate category
     if (data['Category'] && !categories.some(c => c.name === data['Category'])) {
@@ -288,168 +320,259 @@ const AddNewItem = () => {
     return errors;
   };
 
-  const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  // Drag and drop handlers
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
 
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      await handleFileSelection(files[0]);
+    }
+  };
+
+  const handleFileSelection = async (file) => {
+    if (!file) return;
+    
+    // Validate file type
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Please select a valid Excel file (.xlsx or .xls)');
+      return;
+    }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+    
+    setUploadedFile(file);
+    await processFile(file);
+  };
+
+  const processFile = async (file) => {
     setUploadLoading(true);
-    setValidationErrors([]);
     setUploadProgress(0);
     setUploadStatus('Reading file...');
 
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          setUploadStatus('Processing data...');
-          setUploadProgress(20);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        setUploadStatus('Processing data...');
+        setUploadProgress(20);
+        
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        setUploadStatus('Fetching existing items...');
+        setUploadProgress(40);
+
+        // Fetch existing items for validation
+        const existingItems = await fetchExistingItems();
+
+        setUploadStatus('Validating items...');
+        setUploadProgress(60);
+
+        // Validate and categorize items
+        const valid = [];
+        const invalid = [];
+        const processedNames = new Set(); // Track names within the current upload
+        
+        for (let index = 0; index < jsonData.length; index++) {
+          const item = jsonData[index];
+          const errors = await validateItemData(item, existingItems);
           
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-          setUploadStatus('Validating items...');
-          setUploadProgress(40);
-
-          // Validate all items
-          const allErrors = [];
-          jsonData.forEach((item, index) => {
-            const errors = validateItemData(item);
-            if (errors.length > 0) {
-              allErrors.push({
-                row: index + 2,
-                errors,
-                item: item['Name'] || 'Unknown Item'
-              });
-            }
-          });
-
-          if (allErrors.length > 0) {
-            setValidationErrors(allErrors);
-            setShowValidationModal(true);
-            setUploadLoading(false);
-            setUploadProgress(0);
-            setUploadStatus('');
-            return;
+          // Check for duplicates within the current upload
+          if (item['Name'] && processedNames.has(item['Name'].toLowerCase())) {
+            errors.push(`Duplicate item name within upload: "${item['Name']}"`);
+          } else if (item['Name']) {
+            processedNames.add(item['Name'].toLowerCase());
           }
-
-          setUploadStatus('Preparing data for upload...');
-          setUploadProgress(60);
-
-          // If validation passes, prepare data for upload
-          const itemsToAdd = jsonData.map(item => ({
-            name: item['Name'],
-            category: categories.find(c => c.name === item['Category'])?._id,
-            description: item['Description'] || '',
-            location: item['Location'] || '',
-            lowerLimit: Number(item['Lower Limit']) || 0,
-            purchasePrice: Number(item['Purchase Price']),
-            retailPrice: Number(item['Retail Price']),
-            discount: Number(item['Discount']) || 0
-          }));
-
-          setUploadStatus('Uploading items...');
-          setUploadProgress(80);
-
-          // Upload items
-          const token = localStorage.getItem('token');
-          const response = await axios.post(
-            BACKEND_API_URL+'/bulk',
-            { items: itemsToAdd },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`
-              }
-            }
-          );
-
-          if (response.data.success) {
-            setUploadStatus('Generating report...');
-            setUploadProgress(90);
-            
-            // Generate and download result Excel
-            generateResultExcel(response.data.data);
-            setUploadProgress(100);
-            setUploadStatus('Complete!');
-            
-            toast.success(`Successfully added ${response.data.data.successful} items`);
-            setFileInputKey(Date.now());
-            
-            // Wait a moment to show 100% before navigating
-            setTimeout(() => {
-              setUploadLoading(false);
-              navigate('/inventory');
-            }, 1000);
+          
+          const processedItem = {
+            ...item,
+            rowIndex: index + 2,
+            id: `item-${index}`
+          };
+          
+          if (errors.length > 0) {
+            invalid.push({
+              ...processedItem,
+              errors
+            });
+          } else {
+            valid.push(processedItem);
           }
-        } catch (error) {
-          console.error('Error processing file:', error);
-          toast.error('Error processing file. Please check the format and try again.');
-          setFileInputKey(Date.now());
-          setUploadProgress(0);
-          setUploadStatus('Error occurred');
-          setUploadLoading(false);
         }
-      };
-      reader.readAsArrayBuffer(file);
+
+        setValidItems(valid);
+        setInvalidItems(invalid);
+        setPreviewData(jsonData);
+        setShowPreview(true);
+        setUploadProgress(100);
+        setUploadStatus('File processed successfully!');
+        
+        toast.success(`File processed: ${valid.length} valid items, ${invalid.length} items with errors`);
+      } catch (error) {
+        console.error('Error processing file:', error);
+        toast.error('Error processing file. Please check the format and try again.');
+        resetUploadState();
+      } finally {
+        setUploadLoading(false);
+      }
+    };
+    
+    reader.readAsArrayBuffer(file);
+  };
+
+  const resetUploadState = () => {
+    setUploadedFile(null);
+    setPreviewData([]);
+    setShowPreview(false);
+    setValidItems([]);
+    setInvalidItems([]);
+    setUploadProgress(0);
+    setUploadStatus('');
+    setFileInputKey(Date.now());
+  };
+
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    await handleFileSelection(file);
+  };
+
+  const confirmBulkUpload = async () => {
+    if (validItems.length === 0) {
+      toast.error('No valid items to upload');
+      return;
+    }
+
+    setUploadLoading(true);
+    setUploadProgress(0);
+    setUploadStatus('Preparing upload...');
+
+    try {
+      // Prepare data for upload
+      const itemsToAdd = validItems.map(item => ({
+        name: item['Name'],
+        category: categories.find(c => c.name === item['Category'])?._id,
+        description: item['Description'] || '',
+        location: item['Location'] || '',
+        lowerLimit: Number(item['Lower Limit']) || 0,
+        purchasePrice: Number(item['Purchase Price']),
+        retailPrice: Number(item['Retail Price']),
+        discount: Number(item['Discount']) || 0
+      }));
+
+      setUploadStatus('Uploading items...');
+      setUploadProgress(50);
+
+      // Upload items
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        BACKEND_API_URL+'/items/bulk',
+        { items: itemsToAdd },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setUploadStatus('Generating report...');
+        setUploadProgress(90);
+        
+        // Generate and download result Excel
+        generateResultExcel(response.data.data);
+        setUploadProgress(100);
+        setUploadStatus('Upload complete!');
+        
+        toast.success(`Successfully added ${response.data.data.successful} items`);
+        
+        // Wait a moment then reset
+        setTimeout(() => {
+          resetUploadState();
+          setShowBulkUpload(false);
+        }, 2000);
+      }
     } catch (error) {
-      console.error('Error reading file:', error);
-      toast.error('Error reading file');
-      setFileInputKey(Date.now());
+      console.error('Error uploading items:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload items');
       setUploadProgress(0);
-      setUploadStatus('Error occurred');
+      setUploadStatus('Upload failed');
+    } finally {
       setUploadLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      {loading || uploadLoading ? (
-        <div className="min-h-screen flex flex-col items-center justify-center">
-          {uploadLoading && (
-            <div className="w-full max-w-md space-y-4 px-4">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>{uploadStatus}</span>
-                <span>{uploadProgress}%</span>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+      <PageHeader 
+        title="Add New Item" 
+        subtitle="Create new inventory items"
+        icon={FiPackage}
+      />
+
+      <div className="max-w-4xl mx-auto p-6">
+        {loading || uploadLoading ? (
+          <div className="min-h-screen flex flex-col items-center justify-center">
+            {uploadLoading && (
+              <div className="w-full max-w-md space-y-4 px-4">
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>{uploadStatus}</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${uploadProgress}%` }}
+                    transition={{ duration: 0.3 }}
+                    className="h-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
+                  />
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2.5">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${uploadProgress}%` }}
-                  transition={{ duration: 0.3 }}
-                  className="h-2.5 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
-                />
-              </div>
-            </div>
-          )}
-          {loading && !uploadLoading && (
-            <motion.div
-              animate={{
-                scale: [1, 1.2, 1],
-                rotate: [0, 180, 360],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "linear",
-              }}
-              className="w-16 h-16 border-4 border-blue-300 border-t-blue-600 rounded-full"
-            />
-          )}
-        </div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-4xl mx-auto"
-        >
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-lg mb-6">
+            )}
+            {loading && !uploadLoading && (
+              <motion.div
+                animate={{
+                  scale: [1, 1.2, 1],
+                  rotate: [0, 180, 360],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "linear",
+                }}
+                className="w-16 h-16 border-4 border-blue-300 border-t-blue-600 rounded-full"
+              />
+            )}
+          </div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/90 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-lg mb-6"
+          >
             <div className="flex justify-between items-center mb-6">
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent">
-                  Add New Item
-                </h1>
                 <p className="text-sm text-gray-600 mt-1">
                   Keyboard shortcuts: <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded">Ctrl+S</kbd> Save, 
                   <kbd className="px-1 py-0.5 text-xs bg-gray-200 rounded ml-1">Ctrl+T</kbd> Template, 
@@ -469,29 +592,17 @@ const AddNewItem = () => {
                   <FiDownload className="text-lg" />
                   <span>Download Template</span>
                 </motion.button>
-                <label 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center space-x-2 hover:bg-blue-700 transition-colors cursor-pointer focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2"
-                  title="Upload Excel File (Ctrl+U)"
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowBulkUpload(true)}
+                  title="Bulk Upload (Ctrl+U)"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg flex items-center space-x-2 hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                   tabIndex="0"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      fileInputRef.current?.click();
-                    }
-                  }}
                 >
                   <FiUpload className="text-lg" />
-                  <span>Upload Excel</span>
-                  <input
-                    ref={fileInputRef}
-                    key={fileInputKey}
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    tabIndex="-1"
-                  />
-                </label>
+                  <span>Bulk Upload</span>
+                </motion.button>
               </div>
             </div>
 
@@ -709,103 +820,335 @@ const AddNewItem = () => {
                 </motion.button>
               </div>
             </form>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
 
-      {/* Validation Modal */}
-      {showValidationModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border-2 border-blue-200 shadow-lg"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-                <FiAlertCircle className="text-red-600 mr-2" />
-                Validation Errors
-              </h3>
-              <div className="flex space-x-2">
+        {/* Validation Modal */}
+        {showValidationModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto border-2 border-blue-200 shadow-lg"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                  <FiAlertCircle className="text-red-600 mr-2" />
+                  Validation Errors
+                </h3>
+                <div className="flex space-x-2">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      // Generate validation error Excel
+                      const wb = XLSX.utils.book_new();
+                      
+                      // Validation Errors Sheet
+                      const errorData = validationErrors.map(error => ({
+                        'Row': error.row,
+                        'Item': error.item,
+                        'Errors': error.errors.join(', ')
+                      }));
+                      const wsErrors = XLSX.utils.json_to_sheet(errorData);
+                      XLSX.utils.book_append_sheet(wb, wsErrors, 'Validation Errors');
+
+                      // Summary Sheet
+                      const summaryData = [
+                        ['Validation Summary'],
+                        ['Total Items Checked', validationErrors.length],
+                        ['Items with Errors', validationErrors.length],
+                        [''],
+                        ['Generated on', new Date().toLocaleString()]
+                      ];
+                      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+                      XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+                      // Download file
+                      XLSX.writeFile(wb, `validation_errors_${new Date().toISOString().split('T')[0]}.xlsx`);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <FiDownload className="text-lg" />
+                    <span>Download Errors</span>
+                  </motion.button>
+                  <button
+                    onClick={() => setShowValidationModal(false)}
+                    className="text-gray-600 hover:text-gray-800 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                    aria-label="Close modal"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {validationErrors.map((error, index) => (
+                  <div key={index} className="bg-red-50 rounded-lg p-4 border border-red-200">
+                    <p className="text-red-700 font-medium mb-2">Row {error.row} - {error.item}:</p>
+                    <ul className="list-disc list-inside text-gray-700 space-y-1">
+                      {error.errors.map((err, errIndex) => (
+                        <li key={errIndex}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-6 flex justify-end">
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    // Generate validation error Excel
-                    const wb = XLSX.utils.book_new();
-                    
-                    // Validation Errors Sheet
-                    const errorData = validationErrors.map(error => ({
-                      'Row': error.row,
-                      'Item': error.item,
-                      'Errors': error.errors.join(', ')
-                    }));
-                    const wsErrors = XLSX.utils.json_to_sheet(errorData);
-                    XLSX.utils.book_append_sheet(wb, wsErrors, 'Validation Errors');
-
-                    // Summary Sheet
-                    const summaryData = [
-                      ['Validation Summary'],
-                      ['Total Items Checked', validationErrors.length],
-                      ['Items with Errors', validationErrors.length],
-                      [''],
-                      ['Generated on', new Date().toLocaleString()]
-                    ];
-                    const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-                    XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-
-                    // Download file
-                    XLSX.writeFile(wb, `validation_errors_${new Date().toISOString().split('T')[0]}.xlsx`);
-                  }}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <FiDownload className="text-lg" />
-                  <span>Download Errors</span>
-                </motion.button>
-                <button
                   onClick={() => setShowValidationModal(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  Close
+                </motion.button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Bulk Upload Modal */}
+        {showBulkUpload && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" role="dialog" aria-modal="true">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-hidden border-2 border-blue-200 shadow-lg"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-blue-100">
+                <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+                  <FiUpload className="text-blue-600 mr-2" />
+                  Bulk Upload Items
+                </h3>
+                <button
+                  onClick={() => {
+                    setShowBulkUpload(false);
+                    resetUploadState();
+                  }}
                   className="text-gray-600 hover:text-gray-800 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500"
                   aria-label="Close modal"
                 >
-                  ×
+                  <FiX size={20} />
                 </button>
               </div>
-            </div>
-            <div className="space-y-4">
-              {validationErrors.map((error, index) => (
-                <div key={index} className="bg-red-50 rounded-lg p-4 border border-red-200">
-                  <p className="text-red-700 font-medium mb-2">Row {error.row} - {error.item}:</p>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1">
-                    {error.errors.map((err, errIndex) => (
-                      <li key={errIndex}>{err}</li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6 flex justify-end">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setShowValidationModal(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                Close
-              </motion.button>
-            </div>
-          </motion.div>
-        </div>
-      )}
 
-      <CategoryModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
-        onSuccess={() => {
-          setIsCategoryModalOpen(false);
-          fetchCategories();
-          toast.success('Category added successfully');
-        }}
-      />
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                {!uploadedFile && !showPreview && (
+                  <div className="space-y-6">
+                    {/* File Upload Area */}
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`
+                        border-2 border-dashed rounded-lg p-8 text-center transition-colors
+                        ${isDragOver 
+                          ? 'border-blue-500 bg-blue-50' 
+                          : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
+                        }
+                      `}
+                    >
+                      <div className="space-y-4">
+                        <div className="flex justify-center">
+                          <FiFile className="text-4xl text-gray-400" />
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-medium text-gray-700 mb-2">
+                            {isDragOver ? 'Drop your Excel file here' : 'Upload Excel File'}
+                          </h4>
+                          <p className="text-sm text-gray-500 mb-4">
+                            Drag and drop your Excel file here, or click to browse
+                          </p>
+                          <label className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors">
+                            <FiUpload className="mr-2" />
+                            Choose File
+                            <input
+                              ref={fileInputRef}
+                              key={fileInputKey}
+                              type="file"
+                              accept=".xlsx,.xls"
+                              onChange={handleFileUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Supported formats: .xlsx, .xls (Max size: 10MB)
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                      <h5 className="font-medium text-blue-800 mb-2">Instructions:</h5>
+                      <ul className="text-sm text-blue-700 space-y-1">
+                        <li>• Download the template first to see the required format</li>
+                        <li>• Fill in all required fields: Name, Category, Purchase Price, Retail Price</li>
+                        <li>• Category must match one of the existing categories</li>
+                        <li>• Prices should be positive numbers</li>
+                        <li>• You can preview and validate data before uploading</li>
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Upload Progress */}
+                {uploadLoading && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-sm text-gray-600">
+                      <span>{uploadStatus}</span>
+                      <span>{uploadProgress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${uploadProgress}%` }}
+                        transition={{ duration: 0.3 }}
+                        className="h-2 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* File Preview and Validation */}
+                {showPreview && !uploadLoading && (
+                  <div className="space-y-6">
+                    {/* File Info */}
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <FiFile className="text-2xl text-blue-600" />
+                          <div>
+                            <h4 className="font-medium text-gray-800">{uploadedFile?.name}</h4>
+                            <p className="text-sm text-gray-500">
+                              {(uploadedFile?.size / 1024).toFixed(1)} KB • {previewData.length} items
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={resetUploadState}
+                          className="text-gray-500 hover:text-red-600 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Remove file"
+                        >
+                          <FiTrash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Validation Summary */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <div className="flex items-center space-x-2">
+                          <FiCheck className="text-green-600" />
+                          <h5 className="font-medium text-green-800">Valid Items</h5>
+                        </div>
+                        <p className="text-2xl font-bold text-green-700">{validItems.length}</p>
+                        <p className="text-sm text-green-600">Ready to upload</p>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <div className="flex items-center space-x-2">
+                          <FiX className="text-red-600" />
+                          <h5 className="font-medium text-red-800">Items with Errors</h5>
+                        </div>
+                        <p className="text-2xl font-bold text-red-700">{invalidItems.length}</p>
+                        <p className="text-sm text-red-600">Need to be fixed</p>
+                      </div>
+                    </div>
+
+                    {/* Invalid Items */}
+                    {invalidItems.length > 0 && (
+                      <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+                        <h5 className="font-medium text-red-800 mb-3">Items with Errors:</h5>
+                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                          {invalidItems.slice(0, 5).map((item, index) => (
+                            <div key={index} className="bg-white rounded p-3 border border-red-200">
+                              <p className="font-medium text-red-700">
+                                Row {item.rowIndex}: {item.Name || 'Unknown Item'}
+                              </p>
+                              <ul className="text-sm text-red-600 mt-1">
+                                {item.errors.map((error, errIndex) => (
+                                  <li key={errIndex}>• {error}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                          {invalidItems.length > 5 && (
+                            <p className="text-sm text-red-600 text-center">
+                              ... and {invalidItems.length - 5} more items with errors
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Valid Items Preview */}
+                    {validItems.length > 0 && (
+                      <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+                        <h5 className="font-medium text-green-800 mb-3">Valid Items Preview:</h5>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-green-200">
+                                <th className="text-left p-2">Name</th>
+                                <th className="text-left p-2">Category</th>
+                                <th className="text-right p-2">Purchase Price</th>
+                                <th className="text-right p-2">Retail Price</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {validItems.slice(0, 5).map((item, index) => (
+                                <tr key={index} className="border-b border-green-100">
+                                  <td className="p-2 font-medium">{item.Name}</td>
+                                  <td className="p-2">{item.Category}</td>
+                                  <td className="p-2 text-right">Rs. {Number(item['Purchase Price']).toFixed(2)}</td>
+                                  <td className="p-2 text-right">Rs. {Number(item['Retail Price']).toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {validItems.length > 5 && (
+                            <p className="text-sm text-green-600 text-center mt-2">
+                              ... and {validItems.length - 5} more valid items
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        onClick={resetUploadState}
+                        className="px-4 py-2 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      >
+                        Upload Different File
+                      </button>
+                      <button
+                        onClick={confirmBulkUpload}
+                        disabled={validItems.length === 0}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                      >
+                        <FiUpload />
+                        <span>Upload {validItems.length} Items</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        <CategoryModal
+          isOpen={isCategoryModalOpen}
+          onClose={() => setIsCategoryModalOpen(false)}
+          onSuccess={() => {
+            setIsCategoryModalOpen(false);
+            fetchCategories();
+            toast.success('Category added successfully');
+          }}
+        />
+      </div>
     </div>
   );
 };

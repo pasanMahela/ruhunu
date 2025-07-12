@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSearch, FiDownload, FiFilter, FiX, FiTrendingUp, FiTrendingDown, FiPackage, FiShoppingCart, FiDollarSign } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiDownload, FiPrinter, FiEye, FiCalendar, FiUser, FiPackage, FiTrendingUp, FiDollarSign } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import Loading from '../components/Loading';
 import { useAuth } from '../contexts/AuthContext';
 import { API_URL } from '../services/api';
+import PageHeader from '../components/PageHeader';
 
 const ItemBalance = () => {
   const { user } = useAuth();
@@ -191,7 +192,7 @@ const ItemBalance = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6 flex items-center justify-center">
         <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 text-center">
-          <FiX className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <FiEye className="w-12 h-12 text-red-600 mx-auto mb-4" />
           <p className="text-red-600 text-lg">{error}</p>
         </div>
       </div>
@@ -199,14 +200,14 @@ const ItemBalance = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Item Balance Report</h1>
-          <p className="text-gray-600">Track your inventory with last month's purchases, sales, and remaining balance</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+      <PageHeader 
+        title="Item Balance Report" 
+        subtitle="Track your inventory with last month's purchases, sales, and remaining balance"
+        icon={FiPackage}
+      />
 
+      <div className="max-w-7xl mx-auto p-6">
         {/* Controls */}
         <div className="bg-white/90 rounded-lg p-6 mb-6 border-2 border-blue-200 shadow-lg">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
@@ -355,7 +356,7 @@ const ItemBalance = () => {
                   {filteredAndSortedItems.reduce((sum, item) => sum + item.lastMonthPurchases.quantity, 0)}
                 </p>
               </div>
-              <FiShoppingCart className="w-8 h-8 text-blue-600" />
+              <FiDollarSign className="w-8 h-8 text-blue-600" />
             </div>
           </motion.div>
 

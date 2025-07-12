@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { FiCalendar, FiSearch, FiDownload, FiPrinter, FiFilter, FiTrendingUp, FiBarChart2, FiDollarSign, FiList, FiPieChart } from 'react-icons/fi';
+import { FiCalendar, FiSearch, FiDownload, FiPrinter, FiFilter, FiTrendingUp, FiBarChart2, FiDollarSign, FiList, FiPieChart, FiMail } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import PageHeader from '../components/PageHeader';
+import EmailSubscriptionModal from '../components/EmailSubscriptionModal';
 
 const SalesReports = () => {
   const { user } = useAuth();
@@ -30,6 +32,14 @@ const SalesReports = () => {
   const [showFilters, setShowFilters] = useState(true);
   const [activeTab, setActiveTab] = useState('detailed'); // 'detailed' or 'summary'
 
+  // Email subscription states
+  const [emailSubscriptions, setEmailSubscriptions] = useState([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [scheduleTime, setScheduleTime] = useState('08:00');
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [sendingNow, setSendingNow] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+
   // Initialize dates to current month
   useEffect(() => {
     const today = new Date();
@@ -46,6 +56,141 @@ const SalesReports = () => {
       generateReport();
     }
   }, [fromDate, toDate]);
+
+  // Load email subscriptions on component mount
+  useEffect(() => {
+    loadEmailSubscriptions();
+  }, []);
+
+  // Load email subscriptions
+  const loadEmailSubscriptions = async () => {
+    try {
+      const response = await axios.get(
+        `${BACKEND_API_URL}/email-subscriptions/sales-reports`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+      if (response.data.success) {
+        setEmailSubscriptions(response.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error loading email subscriptions:', error);
+    }
+  };
+
+  // Add email subscription
+  const addEmailSubscription = async (email, scheduleTime) => {
+    setLoadingEmails(true);
+    try {
+      const response = await axios.post(
+        `${BACKEND_API_URL}/email-subscriptions/sales-reports`,
+        {
+          email: email,
+          scheduleTime: scheduleTime,
+          isActive: true
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Email subscription added successfully');
+        loadEmailSubscriptions();
+      }
+    } catch (error) {
+      console.error('Error adding email subscription:', error);
+      toast.error(error.response?.data?.message || 'Failed to add email subscription');
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
+  // Remove email subscription
+  const removeEmailSubscription = async (subscriptionId) => {
+    setLoadingEmails(true);
+    try {
+      const response = await axios.delete(
+        `${BACKEND_API_URL}/email-subscriptions/sales-reports/${subscriptionId}`,
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Email subscription removed successfully');
+        loadEmailSubscriptions();
+      }
+    } catch (error) {
+      console.error('Error removing email subscription:', error);
+      toast.error(error.response?.data?.message || 'Failed to remove email subscription');
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
+  // Update schedule time for subscription
+  const updateScheduleTime = async (subscriptionId, newTime) => {
+    try {
+      const response = await axios.put(
+        `${BACKEND_API_URL}/email-subscriptions/sales-reports/${subscriptionId}`,
+        { scheduleTime: newTime },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success('Schedule time updated successfully');
+        loadEmailSubscriptions();
+      }
+    } catch (error) {
+      console.error('Error updating schedule time:', error);
+      toast.error(error.response?.data?.message || 'Failed to update schedule time');
+    }
+  };
+
+  // Send report now to all subscribed emails
+  const sendReportNow = async () => {
+    if (emailSubscriptions.length === 0) {
+      toast.error('No email subscriptions found');
+      return;
+    }
+
+    if (detailedReport.length === 0) {
+      toast.error('No report data to send. Please generate a report first.');
+      return;
+    }
+
+    setSendingNow(true);
+    try {
+      const response = await axios.post(
+        `${BACKEND_API_URL}/email-subscriptions/send-report-now`,
+        {
+          reportData: {
+            detailed: detailedReport,
+            summary: summaryReport,
+            metrics: reportMetrics,
+            dateRange: { fromDate, toDate },
+            customerSearch
+          }
+        },
+        {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        }
+      );
+
+      if (response.data.success) {
+        toast.success(`Report sent to ${emailSubscriptions.length} email(s) successfully`);
+      }
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast.error(error.response?.data?.message || 'Failed to send report');
+    } finally {
+      setSendingNow(false);
+    }
+  };
 
   // Generate sales report
   const generateReport = async () => {
@@ -106,11 +251,76 @@ const SalesReports = () => {
   const printReport = () => {
     const printWindow = window.open('', '_blank');
     const dateRange = `${fromDate} to ${toDate}`;
+    const reportTitle = activeTab === 'detailed' ? 'Detailed Sales Report' : 'Summary Sales Report';
+    
+    let tableContent = '';
+    
+    if (activeTab === 'detailed') {
+      tableContent = `
+        <div class="section-title">Detailed Sales Report</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Item Name</th>
+              <th>Code</th>
+              <th>Customer</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Total</th>
+              <th>Profit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${detailedReport.map(item => `
+              <tr>
+                <td>${new Date(item.saleDate).toLocaleDateString()}</td>
+                <td>${item.itemName}</td>
+                <td>${item.itemCode}</td>
+                <td>${item.customerName}</td>
+                <td class="amount">${item.quantity}</td>
+                <td class="amount">Rs. ${item.price.toFixed(2)}</td>
+                <td class="amount">Rs. ${item.discount.toFixed(2)}</td>
+                <td class="amount">Rs. ${item.total.toFixed(2)}</td>
+                <td class="amount">Rs. ${item.profit.toFixed(2)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      tableContent = `
+        <div class="section-title">Summary by Item</div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>Total Qty</th>
+              <th>Total Revenue</th>
+              <th>Total Profit</th>
+              <th>Profit Margin</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summaryReport.map(item => `
+              <tr>
+                <td>${item.itemName}</td>
+                <td class="amount">${item.totalQuantity}</td>
+                <td class="amount">Rs. ${item.totalRevenue.toFixed(2)}</td>
+                <td class="amount">Rs. ${item.totalProfit.toFixed(2)}</td>
+                <td class="amount">${item.totalRevenue > 0 ? ((item.totalProfit / item.totalRevenue) * 100).toFixed(1) : 0}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
     
     printWindow.document.write(`
       <html>
         <head>
-          <title>Sales Report - ${dateRange}</title>
+          <title>${reportTitle} - ${dateRange}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 20px; }
             .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }
@@ -131,7 +341,7 @@ const SalesReports = () => {
         <body>
           <div class="header">
             <div class="company-name">🏢 Ruhunu Tyre House</div>
-            <div class="report-title">Sales Report</div>
+            <div class="report-title">${reportTitle}</div>
             <div class="date-range">Period: ${dateRange}</div>
             ${customerSearch ? `<div class="date-range">Customer Filter: ${customerSearch}</div>` : ''}
           </div>
@@ -155,59 +365,7 @@ const SalesReports = () => {
             </div>
           </div>
 
-          <div class="section-title">Detailed Sales Report</div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Item Name</th>
-                <th>Code</th>
-                <th>Customer</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Discount</th>
-                <th>Total</th>
-                <th>Profit</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${detailedReport.map(item => `
-                <tr>
-                  <td>${new Date(item.saleDate).toLocaleDateString()}</td>
-                  <td>${item.itemName}</td>
-                  <td>${item.itemCode}</td>
-                  <td>${item.customerName}</td>
-                  <td class="amount">${item.quantity}</td>
-                  <td class="amount">Rs. ${item.price.toFixed(2)}</td>
-                  <td class="amount">Rs. ${item.discount.toFixed(2)}</td>
-                  <td class="amount">Rs. ${item.total.toFixed(2)}</td>
-                  <td class="amount">Rs. ${item.profit.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="section-title">Summary by Item</div>
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Item Name</th>
-                <th>Total Qty</th>
-                <th>Total Revenue</th>
-                <th>Total Profit</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${summaryReport.map(item => `
-                <tr>
-                  <td>${item.itemName}</td>
-                  <td class="amount">${item.totalQuantity}</td>
-                  <td class="amount">Rs. ${item.totalRevenue.toFixed(2)}</td>
-                  <td class="amount">Rs. ${item.totalProfit.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+          ${tableContent}
           
           <div style="margin-top: 40px; text-align: center; font-size: 12px; color: #666;">
             Generated by: ${user?.name || 'System'} | Generated on: ${new Date().toLocaleString()}
@@ -222,28 +380,50 @@ const SalesReports = () => {
 
   // Export to CSV
   const exportToCSV = () => {
-    const csvContent = [
-      // Header
-      ['Date', 'Item Name', 'Code', 'Customer', 'Qty', 'Price', 'Discount', 'Total', 'Profit'],
-      // Data
-      ...detailedReport.map(item => [
-        new Date(item.saleDate).toLocaleDateString(),
-        item.itemName,
-        item.itemCode,
-        item.customerName,
-        item.quantity,
-        item.price.toFixed(2),
-        item.discount.toFixed(2),
-        item.total.toFixed(2),
-        item.profit.toFixed(2)
-      ])
-    ].map(row => row.join(',')).join('\n');
+    let csvContent = '';
+    let filename = '';
+    
+    if (activeTab === 'detailed') {
+      csvContent = [
+        // Header
+        ['Date', 'Item Name', 'Code', 'Customer', 'Qty', 'Price', 'Discount', 'Total', 'Profit'],
+        // Data
+        ...detailedReport.map(item => [
+          new Date(item.saleDate).toLocaleDateString(),
+          item.itemName,
+          item.itemCode,
+          item.customerName,
+          item.quantity,
+          item.price.toFixed(2),
+          item.discount.toFixed(2),
+          item.total.toFixed(2),
+          item.profit.toFixed(2)
+        ])
+      ].map(row => row.join(',')).join('\n');
+      
+      filename = `detailed-sales-report-${fromDate}-to-${toDate}.csv`;
+    } else {
+      csvContent = [
+        // Header
+        ['Item Name', 'Total Qty', 'Total Revenue', 'Total Profit', 'Profit Margin (%)'],
+        // Data
+        ...summaryReport.map(item => [
+          item.itemName,
+          item.totalQuantity,
+          item.totalRevenue.toFixed(2),
+          item.totalProfit.toFixed(2),
+          item.totalRevenue > 0 ? ((item.totalProfit / item.totalRevenue) * 100).toFixed(1) : 0
+        ])
+      ].map(row => row.join(',')).join('\n');
+      
+      filename = `summary-sales-report-${fromDate}-to-${toDate}.csv`;
+    }
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `sales-report-${fromDate}-to-${toDate}.csv`;
+    link.download = filename;
     link.click();
     window.URL.revokeObjectURL(url);
   };
@@ -274,47 +454,47 @@ const SalesReports = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
-      {/* Header */}
-      <div className="bg-white border-b border-blue-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-blue-800 flex items-center">
-                <FiBarChart2 className="mr-3" />
-                Sales Reports
-              </h1>
-              <p className="text-gray-600 mt-1">Comprehensive sales analytics and business intelligence</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-              >
-                <FiFilter size={16} />
-                {showFilters ? 'Hide' : 'Show'} Filters
-              </button>
-              <button
-                onClick={exportToCSV}
-                disabled={detailedReport.length === 0}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                <FiDownload size={16} />
-                Export CSV
-              </button>
-              <button
-                onClick={printReport}
-                disabled={detailedReport.length === 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-              >
-                <FiPrinter size={16} />
-                Print Report
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader 
+        title="Sales Reports" 
+        subtitle="Comprehensive sales analytics and business intelligence"
+        icon={FiBarChart2}
+      />
 
       <div className="max-w-7xl mx-auto p-6">
+        {/* Action Buttons */}
+        <div className="flex justify-end items-center gap-4 mb-6">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+          >
+            <FiFilter size={16} />
+            {showFilters ? 'Hide' : 'Show'} Filters
+          </button>
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+          >
+            <FiMail size={16} />
+            Email Reports ({emailSubscriptions.length})
+          </button>
+          <button
+            onClick={exportToCSV}
+            disabled={activeTab === 'detailed' ? detailedReport.length === 0 : summaryReport.length === 0}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <FiDownload size={16} />
+            Export CSV ({activeTab === 'detailed' ? 'Detailed' : 'Summary'})
+          </button>
+          <button
+            onClick={printReport}
+            disabled={activeTab === 'detailed' ? detailedReport.length === 0 : summaryReport.length === 0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            <FiPrinter size={16} />
+            Print Report ({activeTab === 'detailed' ? 'Detailed' : 'Summary'})
+          </button>
+        </div>
+
         {/* Filters Section */}
         {showFilters && (
           <motion.div
@@ -597,6 +777,19 @@ const SalesReports = () => {
           )}
         </motion.div>
       </div>
+
+      {/* Email Subscription Modal */}
+      <EmailSubscriptionModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        emailSubscriptions={emailSubscriptions}
+        onAddEmail={addEmailSubscription}
+        onRemoveEmail={removeEmailSubscription}
+        onUpdateSchedule={updateScheduleTime}
+        onSendNow={sendReportNow}
+        loading={loadingEmails}
+        sendingNow={sendingNow}
+      />
     </div>
   );
 };

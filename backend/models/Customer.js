@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const customerSchema = new mongoose.Schema({
+  customerNumber: {
+    type: String,
+    unique: true,
+    sparse: true, // Allows multiple null values
+    trim: true
+  },
   nic: {
     type: String,
     required: [true, 'NIC number is required'],
@@ -152,6 +158,7 @@ customerSchema.virtual('customerStatus').get(function() {
 
 // Index for better search performance
 customerSchema.index({ nic: 1 });
+customerSchema.index({ customerNumber: 1 });
 customerSchema.index({ name: 'text', email: 'text' });
 customerSchema.index({ phone: 1 });
 customerSchema.index({ createdAt: -1 });

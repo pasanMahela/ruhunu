@@ -10,10 +10,14 @@ import {
   FiTrendingUp,
   FiPieChart,
   FiFilter,
-  FiDownload
+  FiDownload,
+  FiSearch,
+  FiPrinter,
+  FiEye
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import api from '../services/api';
+import PageHeader from '../components/PageHeader';
 
 const LogsPage = () => {
   // State management
@@ -159,20 +163,14 @@ const LogsPage = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-6"
-      >
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">
-          <FiFileText className="inline mr-3" />
-          Activity Logs
-        </h1>
-        <p className="text-gray-600">Monitor system activities and audit trails</p>
-      </motion.div>
+    <div className="min-h-screen bg-gray-50">
+      <PageHeader 
+        title="Activity Logs" 
+        subtitle="Monitor system activities and audit trails"
+        icon={FiFileText}
+      />
 
+      <div className="p-6">
       {/* Summary Cards */}
       {logsSummary && (
         <motion.div 
@@ -533,6 +531,7 @@ const LogsPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      </div>
     </div>
   );
 };

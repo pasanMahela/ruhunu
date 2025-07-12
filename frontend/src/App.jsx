@@ -19,6 +19,7 @@ import SearchPage from './pages/SearchPage';
 import LogsPage from './pages/LogsPage';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import Loading from './components/Loading';
+import Chatbot from './components/Chatbot';
 import { FiArrowLeft } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -47,6 +48,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
           </main>
           <Footer />
         </div>
+        <Chatbot />
       </div>
     );
   }
@@ -84,6 +86,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
         </main>
         <Footer />
       </div>
+      <Chatbot />
     </div>
   );
 };

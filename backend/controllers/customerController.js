@@ -112,8 +112,13 @@ exports.createCustomer = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`Customer with NIC ${req.body.nic} already exists`, 400));
   }
 
-  // Add created by user
+  // Generate customer number
+  const customerCount = await Customer.countDocuments();
+  const customerNumber = `CUST${String(customerCount + 1).padStart(4, '0')}`;
+
+  // Add created by user and customer number
   req.body.createdBy = req.user._id;
+  req.body.customerNumber = customerNumber;
 
   const customer = await Customer.create(req.body);
 
@@ -319,40 +324,108 @@ exports.getCustomerAnalytics = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Test NIC validation
+// @route   POST /api/customers/test-nic
+// @access  Private
+exports.testNicValidation = asyncHandler(async (req, res, next) => {
+  const { nic } = req.body;
+  
+  console.log('Testing NIC validation for:', nic);
+  
+  const nicRegex = /^([0-9]{9}[vVxX]|[0-9]{12})$/;
+  const isValid = nicRegex.test(nic);
+  
+  console.log('NIC validation result:', { nic, isValid });
+  
+  res.status(200).json({
+    success: true,
+    data: {
+      nic,
+      isValid,
+      length: nic ? nic.length : 0,
+      pattern: nicRegex.toString()
+    }
+  });
+});
+
 // @desc    Create or find customer by NIC (for POS integration)
 // @route   POST /api/customers/find-or-create
 // @access  Private
 exports.findOrCreateCustomer = asyncHandler(async (req, res, next) => {
   const { nic, name } = req.body;
 
+  console.log('findOrCreateCustomer called with:', { nic, name });
+
   if (!nic || !name) {
+    console.log('Missing required fields:', { nic, name });
     return next(new ErrorResponse('NIC and name are required', 400));
   }
 
-  // Try to find existing customer
-  let customer = await Customer.findOne({ nic: nic.toUpperCase() });
-
-  if (!customer) {
-    // Create new customer with minimal data
-    customer = await Customer.create({
-      nic: nic.toUpperCase(),
-      name: name.trim(),
-      createdBy: req.user._id
-    });
-  } else {
-    // Update name if different
-    if (customer.name !== name.trim()) {
-      customer.name = name.trim();
-      customer.updatedBy = req.user._id;
-      await customer.save();
-    }
+  // Validate NIC format
+  const nicRegex = /^([0-9]{9}[vVxX]|[0-9]{12})$/;
+  if (!nicRegex.test(nic)) {
+    console.log('Invalid NIC format:', nic);
+    return next(new ErrorResponse(`Invalid NIC format: ${nic}. Expected 9 digits + V/X or 12 digits.`, 400));
   }
 
-  res.status(200).json({
-    success: true,
-    data: customer,
-    isNew: !customer.lastPurchaseDate
-  });
+  try {
+    // Try to find existing customer
+    let customer = await Customer.findOne({ nic: nic.toUpperCase() });
+    console.log('Existing customer search result:', customer ? 'Found' : 'Not found');
+
+    if (!customer) {
+      // Create new customer with minimal data
+      console.log('Creating new customer with data:', {
+        nic: nic.toUpperCase(),
+        name: name.trim(),
+        createdBy: req.user._id
+      });
+      
+      // Generate customer number
+      const customerCount = await Customer.countDocuments();
+      const customerNumber = `CUST${String(customerCount + 1).padStart(4, '0')}`;
+      
+      customer = await Customer.create({
+        nic: nic.toUpperCase(),
+        name: name.trim(),
+        customerNumber: customerNumber,
+        createdBy: req.user._id
+      });
+      
+      console.log('New customer created successfully:', customer._id);
+    } else {
+      // Update name if different
+      if (customer.name !== name.trim()) {
+        console.log('Updating customer name from:', customer.name, 'to:', name.trim());
+        customer.name = name.trim();
+        customer.updatedBy = req.user._id;
+        await customer.save();
+        console.log('Customer name updated successfully');
+      } else {
+        console.log('Customer name unchanged, no update needed');
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: customer,
+      isNew: !customer.lastPurchaseDate
+    });
+  } catch (error) {
+    console.error('Error in findOrCreateCustomer:', error);
+    
+    // Check for specific MongoDB errors
+    if (error.code === 11000) {
+      return next(new ErrorResponse(`Customer with NIC ${nic} already exists`, 400));
+    }
+    
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(err => err.message);
+      return next(new ErrorResponse(`Validation error: ${messages.join(', ')}`, 400));
+    }
+    
+    return next(new ErrorResponse(`Error creating/finding customer: ${error.message}`, 500));
+  }
 }); 
  
  

@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiSearch, FiPlus, FiTrash2, FiPrinter, FiUser, FiCalendar, FiShoppingCart } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiTrash2, FiPrinter, FiUser, FiCalendar, FiShoppingCart, FiDollarSign } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import PageHeader from '../components/PageHeader';
 
 const PointOfSale = () => {
   const { user } = useAuth();
@@ -29,7 +30,7 @@ const PointOfSale = () => {
   // Item details states
   const [location, setLocation] = useState('');
   const [unitPrice, setUnitPrice] = useState('');
-  const [quantity, setQuantity] = useState('1');
+  const [quantity, setQuantity] = useState('');
   const [discountPercent, setDiscountPercent] = useState('0');
   
   // Cart states
@@ -49,6 +50,7 @@ const PointOfSale = () => {
   const [paidAmount, setPaidAmount] = useState('');
   const [balance, setBalance] = useState(0);
   const [currentDate, setCurrentDate] = useState('');
+  const [nicError, setNicError] = useState('');
 
   // UI states
   const [isProcessing, setIsProcessing] = useState(false);
@@ -145,7 +147,8 @@ const PointOfSale = () => {
         setItemName(item.name);
         setLocation(item.location);
         setUnitPrice(item.retailPrice.toString());
-        setDiscountPercent('0');
+        setQuantity(''); // Clear previous quantity
+        setDiscountPercent((item.discount || 0).toString());
         
         // Focus quantity field
         setTimeout(() => quantityRef.current?.focus(), 100);
@@ -194,7 +197,8 @@ const PointOfSale = () => {
     setItemName(item.name);
     setLocation(item.location);
     setUnitPrice(item.retailPrice.toString());
-    setDiscountPercent('0');
+    setQuantity(''); // Clear previous quantity
+    setDiscountPercent((item.discount || 0).toString());
     setShowSuggestions(false);
     
     // Focus quantity field
@@ -302,7 +306,7 @@ const PointOfSale = () => {
     setSelectedItem(null);
     setLocation('');
     setUnitPrice('');
-    setQuantity('1');
+    setQuantity('');
     setDiscountPercent('0');
   };
 
@@ -329,7 +333,15 @@ const PointOfSale = () => {
       // Create or find customer if NIC and name provided
       let customerId = null;
       if (customerNic.trim() && customerName.trim()) {
+        // Validate NIC format before creating customer
+        if (!validateNic(customerNic.trim())) {
+          toast.error('Please enter a valid NIC format');
+          return;
+        }
+        
         try {
+          console.log('Attempting to create/find customer:', { nic: customerNic.trim(), name: customerName.trim() });
+          
           const customerResponse = await axios.post(
             `${BACKEND_API_URL}/customers/find-or-create`,
             {
@@ -343,9 +355,25 @@ const PointOfSale = () => {
           
           if (customerResponse.data.success) {
             customerId = customerResponse.data.data._id;
+            console.log('Customer created/found successfully:', customerId);
+            toast.success(`Customer ${customerResponse.data.isNew ? 'created' : 'found'}: ${customerName.trim()}`);
           }
         } catch (customerError) {
-          console.warn('Could not create/find customer:', customerError);
+          console.error('Customer creation/finding failed:', customerError.response?.data || customerError.message);
+          
+          // Show specific error message to user
+          const errorMessage = customerError.response?.data?.message || 
+                             customerError.message || 
+                             'Failed to create/find customer';
+          toast.error(`Customer error: ${errorMessage}`);
+          
+          // Log detailed error for debugging
+          console.warn('Customer creation details:', {
+            nic: customerNic.trim(),
+            name: customerName.trim(),
+            error: customerError.response?.data || customerError.message,
+            status: customerError.response?.status
+          });
         }
       }
       
@@ -518,6 +546,13 @@ const PointOfSale = () => {
   const handleCustomerNicKeyPress = (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      
+      // Validate NIC format first
+      if (!validateNic(customerNic.trim())) {
+        toast.error('Please enter a valid NIC format');
+        return;
+      }
+      
       // Trigger the find button functionality
       handleCustomerNicBlur();
       // Focus on Amount Paid field
@@ -528,6 +563,12 @@ const PointOfSale = () => {
     // Search customer by NIC
   const handleCustomerNicBlur = async () => {
     if (!customerNic.trim() || customerSearching) return;
+    
+    // Validate NIC format first
+    if (!validateNic(customerNic.trim())) {
+      toast.error('Please enter a valid NIC format');
+      return;
+    }
     
     // Prevent double search if customer is already selected with this NIC
     if (selectedCustomer && selectedCustomer.nic === customerNic.toUpperCase()) {
@@ -603,23 +644,49 @@ const PointOfSale = () => {
   const totalPrice = quantity && unitPrice ? (parseFloat(quantity) * parseFloat(unitPrice)).toFixed(2) : '0.00';
   const discountAmount = totalPrice && discountPercent ? (parseFloat(totalPrice) * parseFloat(discountPercent) / 100).toFixed(2) : '0.00';
 
+  // NIC validation function
+  const validateNic = (nic) => {
+    if (!nic) {
+      setNicError('');
+      return true;
+    }
+    
+    const nicRegex = /^([0-9]{9}[vVxX]|[0-9]{12})$/;
+    const isValid = nicRegex.test(nic);
+    
+    if (!isValid) {
+      if (nic.length < 9) {
+        setNicError('NIC must be at least 9 digits');
+      } else if (nic.length === 9 && !/^[0-9]{9}[vV]$/.test(nic)) {
+        setNicError('Old format: 9 digits + V (e.g., 123456789V)');
+      } else if (nic.length === 12 && !/^[0-9]{12}$/.test(nic)) {
+        setNicError('New format: 12 digits only');
+      } else if (nic.length > 12) {
+        setNicError('NIC cannot exceed 12 digits');
+      } else {
+        setNicError('Invalid NIC format. Use 9 digits + V or 12 digits');
+      }
+    } else {
+      setNicError('');
+    }
+    
+    return isValid;
+  };
+
+  // Handle NIC input change with validation
+  const handleCustomerNicChange = (value) => {
+    setCustomerNic(value);
+    validateNic(value);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Clean Header */}
-      <div className="bg-white border-b border-blue-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-6 py-3">
-                      <div className="flex justify-between items-center">
-            <div className="flex items-center gap-6">
-              <h1 className="text-xl font-bold text-blue-800">🏢 Ruhunu Tyre House</h1>
-              <div className="text-sm text-gray-600">📞 077-123-4567</div>
-                        </div>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span><FiUser className="inline mr-1" />{user?.name}</span>
-              <span><FiCalendar className="inline mr-1" />{currentDate}</span>
-                        </div>
-                      </div>
-                </div>
-              </div>
+      <PageHeader 
+        title="Point of Sale" 
+        subtitle="Process sales and manage transactions"
+        icon={FiDollarSign}
+      />
 
       <div className="max-w-7xl mx-auto p-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -754,6 +821,7 @@ const PointOfSale = () => {
                        step="0.1"
                        value={discountPercent}
                        onChange={(e) => setDiscountPercent(e.target.value)}
+                       onFocus={(e) => e.target.select()}
                        onKeyPress={(e) => {
                          if (e.key === 'Enter') {
                            e.preventDefault();
@@ -929,20 +997,25 @@ const PointOfSale = () => {
                       ref={customerNicRef}
                       type="text"
                       value={customerNic}
-                      onChange={(e) => setCustomerNic(e.target.value)}
+                      onChange={(e) => handleCustomerNicChange(e.target.value)}
                       onBlur={handleCustomerNicBlur}
                       onKeyPress={handleCustomerNicKeyPress}
                       placeholder="Enter NIC number"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        nicError ? 'border-red-300' : 'border-gray-300'
+                      }`}
                     />
                     <button
                       onClick={handleCustomerNicBlur}
-                      disabled={customerSearching}
+                      disabled={customerSearching || !!nicError}
                       className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
                     >
                       {customerSearching ? '⏳' : 'Find'}
                     </button>
                 </div>
+                {nicError && (
+                  <p className="mt-1 text-sm text-red-600">{nicError}</p>
+                )}
                   </div>
                 
                 <div>

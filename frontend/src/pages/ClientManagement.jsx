@@ -1,25 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FiSearch, 
-  FiPlus, 
-  FiEdit, 
-  FiEye, 
-  FiUsers, 
-  FiTrendingUp, 
-  FiDollarSign,
-  FiShoppingBag,
-  FiCalendar,
-  FiPhone,
-  FiMail,
-  FiMapPin,
-  FiAward,
-  FiFilter,
-  FiDownload
-} from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiFilter, FiDownload, FiPrinter, FiUser, FiMail, FiPhone, FiMapPin, FiTrendingUp, FiCalendar, FiDollarSign, FiPackage } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import PageHeader from '../components/PageHeader';
 import Loading from '../components/Loading';
 
 const ClientManagement = () => {
@@ -87,7 +73,7 @@ const ClientManagement = () => {
     }
   };
 
-  // Initial data fetch
+  // Initial data fetch and when filters/sort change
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -95,7 +81,7 @@ const ClientManagement = () => {
       setLoading(false);
     };
     loadData();
-  }, [currentPage, searchTerm, filterType, filterStatus, sortBy]);
+  }, [currentPage, filterType, filterStatus, sortBy]);
 
   // View customer details
   const viewCustomer = async (customerId) => {
@@ -138,27 +124,31 @@ const ClientManagement = () => {
     return colors[type] || colors.regular;
   };
 
+  // Handle search button click
+  const handleSearchClick = () => {
+    fetchCustomers();
+  };
+
   if (loading) {
     return <Loading message="Loading customer data..." />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Client Management</h1>
-          <p className="text-gray-600">Manage customers and analyze their purchase behavior</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+      <PageHeader 
+        title="Client Management" 
+        subtitle="Manage customers and analyze their purchase behavior"
+        icon={FiUser}
+      />
 
+      <div className="max-w-7xl mx-auto p-6">
         {/* Tab Navigation */}
         <div className="mb-6">
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               {[
-                { id: 'overview', name: 'Overview', icon: FiUsers },
-                { id: 'customers', name: 'Customers', icon: FiUsers },
+                { id: 'overview', name: 'Overview', icon: FiUser },
+                { id: 'customers', name: 'Customers', icon: FiUser },
                 { id: 'analytics', name: 'Analytics', icon: FiTrendingUp }
               ].map((tab) => {
                 const Icon = tab.icon;
@@ -189,7 +179,7 @@ const ClientManagement = () => {
               <div className="bg-white rounded-lg border border-blue-200 shadow-sm p-6">
                 <div className="flex items-center">
                   <div className="p-3 rounded-full bg-blue-100">
-                    <FiUsers className="text-blue-600" size={24} />
+                    <FiUser className="text-blue-600" size={24} />
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Customers</p>
@@ -225,7 +215,7 @@ const ClientManagement = () => {
               <div className="bg-white rounded-lg border border-yellow-200 shadow-sm p-6">
                 <div className="flex items-center">
                   <div className="p-3 rounded-full bg-yellow-100">
-                    <FiAward className="text-yellow-600" size={24} />
+                    <FiDollarSign className="text-yellow-600" size={24} />
                   </div>
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Avg. Per Customer</p>
@@ -287,8 +277,8 @@ const ClientManagement = () => {
             {/* Search and Filters */}
             <div className="bg-white rounded-lg border border-blue-200 shadow-sm p-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-2">
-                  <div className="relative">
+                <div className="md:col-span-2 flex gap-2">
+                  <div className="relative flex-grow">
                     <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                     <input
                       type="text"
@@ -298,6 +288,12 @@ const ClientManagement = () => {
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>
+                  <button
+                    onClick={handleSearchClick}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Search
+                  </button>
                 </div>
                 
                 <div>
@@ -411,7 +407,7 @@ const ClientManagement = () => {
                               className="text-blue-600 hover:text-blue-800 p-1 rounded"
                               title="View Details"
                             >
-                              <FiEye size={16} />
+                              <FiUser size={16} />
                             </button>
                           </td>
                         </motion.tr>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiArrowUp, FiArrowDown, FiPrinter, FiDownload, FiFilter, FiX } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiArrowUp, FiArrowDown, FiPrinter, FiDownload, FiFilter, FiX, FiPackage, FiEye, FiGrid, FiList, FiAlertTriangle, FiCheckCircle, FiDollarSign } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -11,14 +11,22 @@ import Loading from '../components/Loading';
 import { useAuth } from '../contexts/AuthContext';
 import Toast from '../components/Toast';
 import { API_URL } from '../services/api';
+import PageHeader from '../components/PageHeader';
 
 // Category color mapping
 const categoryColors = {
-  'Electronics': 'bg-blue-600',
-  'Clothing': 'bg-blue-500',
-  'Food': 'bg-blue-700',
-  'Books': 'bg-blue-800',
-  'Other': 'bg-gray-600'
+  'Electronics': 'bg-blue-100 text-blue-800 border-blue-200',
+  'Clothing': 'bg-purple-100 text-purple-800 border-purple-200',
+  'Food': 'bg-green-100 text-green-800 border-green-200',
+  'Books': 'bg-orange-100 text-orange-800 border-orange-200',
+  'Other': 'bg-gray-100 text-gray-800 border-gray-200'
+};
+
+// Stock status colors
+const getStockStatus = (stock, lowerLimit = 10) => {
+  if (stock === 0) return { color: 'text-red-600', bg: 'bg-red-50', label: 'Out of Stock', icon: FiAlertTriangle };
+  if (stock <= lowerLimit) return { color: 'text-orange-600', bg: 'bg-orange-50', label: 'Low Stock', icon: FiAlertTriangle };
+  return { color: 'text-green-600', bg: 'bg-green-50', label: 'In Stock', icon: FiCheckCircle };
 };
 
 const Inventory = () => {
@@ -27,11 +35,14 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('name');
+  const [sortDirection, setSortDirection] = useState('asc');
   const [filters, setFilters] = useState({
     category: '',
     location: '',
-    minStock: '',
-    maxStock: ''
+    stockStatus: '', // 'low', 'out', 'in'
+    minPrice: '',
+    maxPrice: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -41,6 +52,7 @@ const Inventory = () => {
   const [stockModal, setStockModal] = useState({ isOpen: false, item: null, action: null });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid'
+  const [selectedItems, setSelectedItems] = useState([]);
 
   const BACKEND_API_URL = API_URL;
 
@@ -53,7 +65,6 @@ const Inventory = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // Check if response has the expected structure
       if (response.data && response.data.success && Array.isArray(response.data.data)) {
         setItems(response.data.data);
       } else {
@@ -114,33 +125,75 @@ const Inventory = () => {
     setFilters({
       category: '',
       location: '',
-      minStock: '',
-      maxStock: ''
+      stockStatus: '',
+      minPrice: '',
+      maxPrice: ''
     });
+    setSearchTerm('');
   };
 
-  const filteredItems = Array.isArray(items) ? items.filter(item => {
-    const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesCategory = !filters.category || item.category?.name === filters.category;
-    const matchesLocation = !filters.location || item.location === filters.location;
-    const matchesMinStock = !filters.minStock || item.quantityInStock >= Number(filters.minStock);
-    const matchesMaxStock = !filters.maxStock || item.quantityInStock <= Number(filters.maxStock);
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
-    return matchesSearch && matchesCategory && matchesLocation && matchesMinStock && matchesMaxStock;
-  }) : [];
+  const getSortIcon = (field) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <FiArrowUp className="w-4 h-4" /> : <FiArrowDown className="w-4 h-4" />;
+  };
+
+  const filteredAndSortedItems = Array.isArray(items) ? items
+    .filter(item => {
+      const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = !filters.category || item.category?.name === filters.category;
+      const matchesLocation = !filters.location || item.location === filters.location;
+      
+      const stockStatus = getStockStatus(item.quantityInStock, item.lowerLimit);
+      const matchesStockStatus = !filters.stockStatus || 
+        (filters.stockStatus === 'out' && item.quantityInStock === 0) ||
+        (filters.stockStatus === 'low' && item.quantityInStock > 0 && item.quantityInStock <= (item.lowerLimit || 10)) ||
+        (filters.stockStatus === 'in' && item.quantityInStock > (item.lowerLimit || 10));
+      
+      const matchesMinPrice = !filters.minPrice || item.retailPrice >= Number(filters.minPrice);
+      const matchesMaxPrice = !filters.maxPrice || item.retailPrice <= Number(filters.maxPrice);
+
+      return matchesSearch && matchesCategory && matchesLocation && matchesStockStatus && matchesMinPrice && matchesMaxPrice;
+    })
+    .sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      if (sortField === 'category') {
+        aValue = a.category?.name || '';
+        bValue = b.category?.name || '';
+      }
+      
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    }) : [];
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Ctrl/Cmd + N for new item
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
         setIsAddModalOpen(true);
       }
-      // Ctrl/Cmd + F to focus search
       if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault();
         document.getElementById('search-input')?.focus();
@@ -153,7 +206,6 @@ const Inventory = () => {
 
   const handleDelete = async (item) => {
     try {
-      console.log('Attempting to delete item:', item.itemCode);
       const token = localStorage.getItem('token');
       
       if (!token) {
@@ -197,7 +249,7 @@ const Inventory = () => {
 
   const handlePrintAll = () => {
     const printWindow = window.open('', '_blank');
-    const items = filteredItems.map(item => ({
+    const items = filteredAndSortedItems.map(item => ({
       'Item Code': item.itemCode,
       'Name': item.name,
       'Category': item.category?.name || 'Uncategorized',
@@ -213,19 +265,24 @@ const Inventory = () => {
         <head>
           <title>Inventory Report</title>
           <style>
-            body { font-family: Arial, sans-serif; }
+            body { font-family: Arial, sans-serif; margin: 20px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f5f5f5; }
-            h1 { text-align: center; color: #333; }
-            .header { margin-bottom: 20px; }
-            .date { text-align: right; color: #666; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f8f9fa; font-weight: bold; }
+            h1 { text-align: center; color: #333; margin-bottom: 10px; }
+            .header { margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+            .date { text-align: right; color: #666; font-size: 14px; }
+            .summary { margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 5px; }
           </style>
         </head>
         <body>
           <div class="header">
             <h1>Inventory Report</h1>
             <div class="date">Generated on: ${new Date().toLocaleString()}</div>
+          </div>
+          <div class="summary">
+            <strong>Total Items: ${items.length}</strong> | 
+            <strong>Total Value: Rs. ${items.reduce((sum, item) => sum + (parseFloat(item['Retail Price'].replace('Rs. ', '')) || 0), 0).toFixed(2)}</strong>
           </div>
           <table>
             <thead>
@@ -265,7 +322,7 @@ const Inventory = () => {
   };
 
   const handleExportToExcel = () => {
-    const items = filteredItems.map(item => ({
+    const items = filteredAndSortedItems.map(item => ({
       'Item Code': item.itemCode,
       'Name': item.name,
       'Category': item.category?.name || 'Uncategorized',
@@ -273,17 +330,23 @@ const Inventory = () => {
       'Purchase Price': item.purchasePrice,
       'Retail Price': item.retailPrice,
       'Discount': item.discount,
-      'Stock': item.quantityInStock
+      'Stock': item.quantityInStock,
+      'Stock Value': item.quantityInStock * item.retailPrice
     }));
 
     const ws = XLSX.utils.json_to_sheet(items);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
     
-    // Generate Excel file
     XLSX.writeFile(wb, `inventory_report_${new Date().toISOString().split('T')[0]}.xlsx`);
     toast.success('Inventory exported to Excel successfully');
   };
+
+  // Calculate summary stats
+  const totalItems = filteredAndSortedItems.length;
+  const totalValue = filteredAndSortedItems.reduce((sum, item) => sum + (item.quantityInStock * item.retailPrice), 0);
+  const lowStockItems = filteredAndSortedItems.filter(item => item.quantityInStock <= (item.lowerLimit || 10) && item.quantityInStock > 0).length;
+  const outOfStockItems = filteredAndSortedItems.filter(item => item.quantityInStock === 0).length;
 
   if (loading) {
     return <Loading message="Loading inventory..." />;
@@ -305,362 +368,497 @@ const Inventory = () => {
     );
   }
 
-  const ItemCard = ({ item }) => (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="bg-white/90 backdrop-blur-sm rounded-xl p-6 border-2 border-blue-200 shadow-lg"
-    >
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800">{item.name}</h3>
-          <p className="text-gray-600 text-sm">{item.itemCode}</p>
+  const ItemCard = ({ item }) => {
+    const stockStatus = getStockStatus(item.quantityInStock, item.lowerLimit);
+    const StatusIcon = stockStatus.icon;
+    
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200"
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium text-gray-500">#{item.itemCode}</span>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor(item.category)}`}>
+                {item.category?.name || 'Uncategorized'}
+              </span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2">{item.name}</h3>
+            <p className="text-sm text-gray-600 mb-3">{item.location}</p>
+          </div>
         </div>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(item.category)} text-white`}>
-          {item.category?.name || 'Uncategorized'}
-        </span>
-      </div>
-      
-      <div className="space-y-2">
-        <p className="text-gray-700">
-          <span className="text-gray-600">Location:</span> {item.location}
-        </p>
-        <p className="text-gray-700">
-          <span className="text-gray-600">Stock:</span> {item.quantityInStock}
-        </p>
-        <p className="text-gray-700">
-          <span className="text-gray-600">Price:</span> Rs. {item.retailPrice}
-        </p>
-      </div>
+        
+        <div className="space-y-3 mb-4">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Stock Status</span>
+            <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
+              <StatusIcon className="w-3 h-3" />
+              {stockStatus.label}
+            </div>
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Quantity</span>
+            <span className="font-medium">{item.quantityInStock}</span>
+          </div>
+          
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">Retail Price</span>
+            <span className="font-medium">Rs. {item.retailPrice.toFixed(2)}</span>
+          </div>
+          
+          {item.discount > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Discount</span>
+              <span className="font-medium text-green-600">{item.discount}%</span>
+            </div>
+          )}
+        </div>
 
-      <div className="mt-4 flex justify-end space-x-2">
-        {isAdmin && (
-          <>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setEditingItem(item)}
-              className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
-            >
-              Edit
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setDeleteModal({ isOpen: true, item })}
-              className="px-3 py-1 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200 transition-colors"
-            >
-              Delete
-            </motion.button>
-          </>
-        )}
-      </div>
-    </motion.div>
-  );
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <motion.h1
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-blue-700 to-blue-800 bg-clip-text text-transparent"
-          >
-            Inventory Management
-          </motion.h1>
-          <div className="flex space-x-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handlePrintAll}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl border-2 border-blue-300 flex items-center"
-            >
-              <FiPrinter className="mr-2" />
-              Print All
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleExportToExcel}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl border-2 border-blue-300 flex items-center"
-            >
-              <FiDownload className="mr-2" />
-              Export to Excel
-            </motion.button>
-            {isAdmin && (
+        <div className="flex gap-2">
+          {isAdmin && (
+            <>
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => setIsAddModalOpen(true)}
-                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl border-2 border-blue-300 flex items-center"
+                onClick={() => setEditingItem(item)}
+                className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
               >
-                <FiPlus className="mr-2" />
-                Add New Item
+                <FiEdit2 className="w-4 h-4" />
+                Edit
               </motion.button>
-            )}
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setDeleteModal({ isOpen: true, item })}
+                className="flex-1 px-3 py-2 bg-red-50 text-red-600 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center justify-center gap-1"
+              >
+                <FiTrash2 className="w-4 h-4" />
+                Delete
+              </motion.button>
+            </>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <PageHeader 
+        title="Inventory Management" 
+        subtitle={`Manage ${totalItems} items • Total value: Rs. ${totalValue.toFixed(2)}`}
+        icon={FiPackage}
+      />
+      
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Items</p>
+                <p className="text-2xl font-bold text-gray-900">{totalItems}</p>
+              </div>
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <FiPackage className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Value</p>
+                <p className="text-2xl font-bold text-gray-900">Rs. {totalValue.toFixed(0)}</p>
+              </div>
+              <div className="p-3 bg-green-100 rounded-lg">
+                <FiDollarSign className="w-6 h-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Low Stock</p>
+                <p className="text-2xl font-bold text-orange-600">{lowStockItems}</p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <FiAlertTriangle className="w-6 h-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Out of Stock</p>
+                <p className="text-2xl font-bold text-red-600">{outOfStockItems}</p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-lg">
+                <FiX className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="relative flex-1 max-w-md">
-              <input
-                type="text"
-                id="search-input"
-                placeholder="Search items..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-            <motion.div
-              initial={false}
-              animate={{
-                width: showFilters ? 'auto' : 'auto',
-                backgroundColor: showFilters ? 'rgb(59 130 246)' : 'rgba(147 197 253, 0.5)',
-              }}
-              transition={{
-                duration: 0.3,
-                ease: "easeInOut"
-              }}
-              className="relative"
-            >
+        {/* Controls */}
+        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  id="search-input"
+                  placeholder="Search items, codes, categories..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowFilters(!showFilters)}
-                className="px-4 py-2 rounded-lg flex items-center space-x-2 text-gray-600 hover:text-white transition-colors duration-200"
+                className={`px-4 py-3 rounded-lg flex items-center gap-2 font-medium transition-colors ${
+                  showFilters 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <motion.div
-                  animate={{ rotate: showFilters ? 180 : 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <FiFilter />
-                </motion.div>
-                <motion.span
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ 
-                    opacity: 1,
-                    width: 'auto',
-                    marginLeft: showFilters ? 8 : 0
-                  }}
-                  transition={{ duration: 0.3 }}
-                  className="whitespace-nowrap overflow-hidden"
-                >
-                  {showFilters ? 'Hide Filters' : 'Show Filters'}
-                </motion.span>
+                <FiFilter className="w-4 h-4" />
+                Filters
               </motion.button>
-            </motion.div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setViewMode(viewMode === 'table' ? 'grid' : 'table')}
+                className="px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+              >
+                {viewMode === 'table' ? <FiGrid className="w-4 h-4" /> : <FiList className="w-4 h-4" />}
+                {viewMode === 'table' ? 'Grid' : 'Table'}
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleExportToExcel}
+                className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <FiDownload className="w-4 h-4" />
+                Export
+              </motion.button>
+              
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handlePrintAll}
+                className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+              >
+                <FiPrinter className="w-4 h-4" />
+                Print
+              </motion.button>
+              
+              {isAdmin && (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setIsAddModalOpen(true)}
+                  className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <FiPlus className="w-4 h-4" />
+                  Add Item
+                </motion.button>
+              )}
+            </div>
           </div>
-          <div className="flex space-x-2">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg ${
-                viewMode === 'grid'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-              }`}
-            >
-              Grid
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setViewMode('table')}
-              className={`p-2 rounded-lg ${
-                viewMode === 'table'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
-              }`}
-            >
-              Table
-            </motion.button>
-          </div>
+
+          {/* Filters Section */}
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6 pt-6 border-t border-gray-200"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select
+                      name="category"
+                      value={filters.category}
+                      onChange={handleFilterChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map(category => (
+                        <option key={category._id} value={category.name}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                    <select
+                      name="location"
+                      value={filters.location}
+                      onChange={handleFilterChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">All Locations</option>
+                      {locations.map(location => (
+                        <option key={location} value={location}>
+                          {location}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Stock Status</label>
+                    <select
+                      name="stockStatus"
+                      value={filters.stockStatus}
+                      onChange={handleFilterChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">All Status</option>
+                      <option value="in">In Stock</option>
+                      <option value="low">Low Stock</option>
+                      <option value="out">Out of Stock</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Min Price</label>
+                    <input
+                      type="number"
+                      name="minPrice"
+                      value={filters.minPrice}
+                      onChange={handleFilterChange}
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Price</label>
+                    <input
+                      type="number"
+                      name="maxPrice"
+                      value={filters.maxPrice}
+                      onChange={handleFilterChange}
+                      min="0"
+                      step="0.01"
+                      placeholder="999999"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex justify-end">
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={clearFilters}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center gap-2"
+                  >
+                    <FiX className="w-4 h-4" />
+                    Clear All Filters
+                  </motion.button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Filters Section */}
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ opacity: 0, height: 0, y: -20 }}
-              animate={{ 
-                opacity: 1, 
-                height: 'auto',
-                y: 0
-              }}
-              exit={{ 
-                opacity: 0, 
-                height: 0,
-                y: -20
-              }}
-              transition={{
-                duration: 0.3,
-                ease: "easeInOut"
-              }}
-              className="mb-6 bg-white/90 backdrop-blur-sm rounded-xl p-4 border-2 border-blue-200 shadow-lg overflow-hidden"
-            >
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={clearFilters}
-                  className="text-gray-600 hover:text-gray-800 flex items-center space-x-1"
-                >
-                  <FiX />
-                  <span>Clear Filters</span>
-                </motion.button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select
-                    name="category"
-                    value={filters.category}
-                    onChange={handleFilterChange}
-                    className="w-full px-3 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Categories</option>
-                    {categories.map(category => (
-                      <option key={category._id} value={category.name}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <select
-                    name="location"
-                    value={filters.location}
-                    onChange={handleFilterChange}
-                    className="w-full px-3 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Locations</option>
-                    {locations.map(location => (
-                      <option key={location} value={location}>
-                        {location}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Min Stock</label>
-                  <input
-                    type="number"
-                    name="minStock"
-                    value={filters.minStock}
-                    onChange={handleFilterChange}
-                    min="0"
-                    placeholder="Min stock"
-                    className="w-full px-3 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Stock</label>
-                  <input
-                    type="number"
-                    name="maxStock"
-                    value={filters.maxStock}
-                    onChange={handleFilterChange}
-                    min="0"
-                    placeholder="Max stock"
-                    className="w-full px-3 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 p-3 bg-red-500/10 border border-red-500 rounded-lg text-red-400"
-          >
-            {error}
-          </motion.div>
-        )}
-
-        {viewMode === 'grid' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredItems.map((item) => (
-              <ItemCard key={item._id} item={item} />
-            ))}
+        {/* Content */}
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <AnimatePresence>
+              {filteredAndSortedItems.map((item) => (
+                <ItemCard key={item._id} item={item} />
+              ))}
+            </AnimatePresence>
           </div>
-        )}
-
-        {viewMode === 'table' && (
-          <div className="bg-white/90 backdrop-blur-sm rounded-xl border-2 border-blue-200 shadow-lg overflow-hidden">
+        ) : (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead>
-                                      <tr className="bg-blue-100">
-                                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Item Code</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-64">Item Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Category</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Purchase Price Rs.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Retail Price Rs.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Item Discount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Stock</th>
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th 
+                      onClick={() => handleSort('itemCode')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Item Code
+                        {getSortIcon('itemCode')}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('name')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Name
+                        {getSortIcon('name')}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('category')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Category
+                        {getSortIcon('category')}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('location')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Location
+                        {getSortIcon('location')}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('retailPrice')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Price
+                        {getSortIcon('retailPrice')}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('quantityInStock')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Stock
+                        {getSortIcon('quantityInStock')}
+                      </div>
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
                     {isAdmin && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">Actions</th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     )}
                   </tr>
                 </thead>
-                                  <tbody className="divide-y divide-blue-200">
-                  {filteredItems.map((item) => (
-                                          <tr key={item._id} className="hover:bg-blue-50">
-                                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.itemCode}</td>
-                        <td className="px-6 py-4 text-sm text-gray-800 break-words max-w-xs">{item.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(item.category)} text-white`}>
-                          {item.category?.name || 'Uncategorized'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.location}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Rs. {item.purchasePrice.toFixed(2)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">Rs. {item.retailPrice.toFixed(2)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.discount}%</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{item.quantityInStock}</td>
-                      {isAdmin && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <div className="flex space-x-2">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setEditingItem(item)}
-                              className="text-blue-600 hover:text-blue-800"
-                            >
-                              Edit
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => setDeleteModal({ isOpen: true, item })}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              Delete
-                            </motion.button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
+                <tbody className="bg-white divide-y divide-gray-200">
+                  <AnimatePresence>
+                    {filteredAndSortedItems.map((item) => {
+                      const stockStatus = getStockStatus(item.quantityInStock, item.lowerLimit);
+                      const StatusIcon = stockStatus.icon;
+                      
+                      return (
+                        <motion.tr 
+                          key={item._id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="hover:bg-gray-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            #{item.itemCode}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
+                            <div className="truncate" title={item.name}>
+                              {item.name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor(item.category)}`}>
+                              {item.category?.name || 'Uncategorized'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {item.location}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                            Rs. {item.retailPrice.toFixed(2)}
+                            {item.discount > 0 && (
+                              <span className="ml-2 text-xs text-green-600">(-{item.discount}%)</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <span className={stockStatus.color}>
+                              {item.quantityInStock}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${stockStatus.bg} ${stockStatus.color}`}>
+                              <StatusIcon className="w-3 h-3" />
+                              {stockStatus.label}
+                            </div>
+                          </td>
+                          {isAdmin && (
+                            <td className="px-6 py-4 whitespace-nowrap text-sm">
+                              <div className="flex gap-2">
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setEditingItem(item)}
+                                  className="text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  Edit
+                                </motion.button>
+                                <motion.button
+                                  whileHover={{ scale: 1.05 }}
+                                  whileTap={{ scale: 0.95 }}
+                                  onClick={() => setDeleteModal({ isOpen: true, item })}
+                                  className="text-red-600 hover:text-red-800 font-medium"
+                                >
+                                  Delete
+                                </motion.button>
+                              </div>
+                            </td>
+                          )}
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
                 </tbody>
               </table>
+              
+              {filteredAndSortedItems.length === 0 && (
+                <div className="text-center py-12">
+                  <FiPackage className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500 text-lg font-medium">No items found</p>
+                  <p className="text-gray-400">Try adjusting your search or filters</p>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
+      {/* Modals */}
       <ItemModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}

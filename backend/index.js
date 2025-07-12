@@ -9,6 +9,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const customerRoutes = require('./routes/customers');
 const logsRoutes = require('./routes/logs');
 const analyticsRoutes = require('./routes/analytics');
+const emailSubscriptionRoutes = require('./routes/emailSubscriptions');
+const chatbotRoutes = require('./routes/chatbot');
 
 const app = express();
 
@@ -30,9 +32,13 @@ mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-.then(() => {
+.then(async () => {
   console.log('Connected to MongoDB successfully');
   console.log('Database:', process.env.MONGODB_URI);
+  
+  // Initialize email scheduler after database connection
+  const emailScheduler = require('./services/emailScheduler');
+  await emailScheduler.initialize();
 })
 .catch(err => {
   console.error('MongoDB connection error:', err);
@@ -60,6 +66,8 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/item-balance', require('./routes/itemBalance'));
 app.use('/api/logs', logsRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/email-subscriptions', emailSubscriptionRoutes);
+app.use('/api/chatbot', chatbotRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

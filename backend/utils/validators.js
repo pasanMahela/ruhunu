@@ -5,8 +5,10 @@ exports.validateItem = [
   body('itemCode')
     .optional()
     .trim()
-    .isLength({ min: 3, max: 20 })
-    .withMessage('Item code must be between 3 and 20 characters'),
+    .isLength({ min: 1, max: 10 })
+    .withMessage('Item code must be between 1 and 10 characters')
+    .matches(/^\d+$/)
+    .withMessage('Item code must be numeric'),
 
   body('name')
     .trim()

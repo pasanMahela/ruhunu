@@ -6,7 +6,7 @@ const itemSchema = new mongoose.Schema({
     required: true,
     unique: true,
     trim: true,
-    maxlength: [20, 'Item code cannot be more than 20 characters']
+    maxlength: [10, 'Item code cannot be more than 10 characters']
   },
   name: {
     type: String,
@@ -73,17 +73,28 @@ itemSchema.index({ category: 1 });
 // Add method to generate next item code
 itemSchema.statics.generateNextItemCode = async function() {
   try {
-    const lastItem = await this.findOne({}, {}, { sort: { 'itemCode': -1 } });
+    // Find the item with the highest numeric item code
+    const lastItem = await this.findOne({
+      itemCode: { $regex: /^\d+$/ } // Only match purely numeric codes
+    }, {}, { 
+      sort: { 
+        createdAt: -1 // Sort by creation date to get the most recent
+      } 
+    });
+    
     let nextNumber = 1;
     
-    if (lastItem && lastItem.itemCode.startsWith('RT')) {
-      const lastNumber = parseInt(lastItem.itemCode.substring(2));
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
+    if (lastItem) {
+      // Get all items and find the maximum numeric code
+      const allItems = await this.find({
+        itemCode: { $regex: /^\d+$/ }
+      }).select('itemCode');
+      
+      const maxCode = Math.max(...allItems.map(item => parseInt(item.itemCode) || 0));
+      nextNumber = maxCode + 1;
     }
     
-    return `RT${nextNumber.toString().padStart(4, '0')}`;
+    return nextNumber.toString();
   } catch (error) {
     console.error('Error generating item code:', error);
     throw error;

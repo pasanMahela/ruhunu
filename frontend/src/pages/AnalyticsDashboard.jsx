@@ -14,7 +14,9 @@ import {
 } from 'chart.js';
 import { Line, Bar, Doughnut, Pie } from 'react-chartjs-2';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { FiBarChart2 } from 'react-icons/fi';
 import api from '../services/api';
+import PageHeader from '../components/PageHeader';
 
 // Register Chart.js components
 ChartJS.register(
@@ -492,29 +494,29 @@ const AnalyticsDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Business Intelligence Dashboard</h1>
-          <p className="text-gray-600 mt-2">Real-time analytics and insights for your business</p>
-          
-          {/* Time Period Selector */}
-          <div className="mt-4 flex flex-wrap gap-2">
-            {['today', 'week', 'month', 'quarter'].map((period) => (
-              <button
-                key={period}
-                onClick={() => handlePeriodChange(period)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  timePeriod === period
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {period.charAt(0).toUpperCase() + period.slice(1)}
-              </button>
-            ))}
-          </div>
+    <div className="min-h-screen bg-gray-100">
+      <PageHeader 
+        title="Business Intelligence Dashboard" 
+        subtitle="Real-time analytics and insights for your business"
+        icon={FiBarChart2}
+      />
+
+      <div className="max-w-7xl mx-auto p-6">
+        {/* Time Period Selector */}
+        <div className="mb-6 flex flex-wrap gap-2">
+          {['today', 'week', 'month', 'quarter'].map((period) => (
+            <button
+              key={period}
+              onClick={() => handlePeriodChange(period)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                timePeriod === period
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {period.charAt(0).toUpperCase() + period.slice(1)}
+            </button>
+          ))}
         </div>
 
         {/* Error Message */}

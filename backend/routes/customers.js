@@ -9,7 +9,8 @@ const {
   getCustomerByNic,
   updatePurchaseStats,
   getCustomerAnalytics,
-  findOrCreateCustomer
+  findOrCreateCustomer,
+  testNicValidation
 } = require('../controllers/customerController');
 
 const router = express.Router();
@@ -25,6 +26,9 @@ router.get('/analytics/overview', authorize('admin', 'manager'), getCustomerAnal
 // Search routes
 router.get('/search/:query', searchCustomers);
 router.get('/nic/:nic', getCustomerByNic);
+
+// Test and utility routes
+router.post('/test-nic', testNicValidation);
 
 // Find or create for POS integration
 router.post('/find-or-create', findOrCreateCustomer);
