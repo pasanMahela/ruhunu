@@ -189,14 +189,14 @@ const AddStocks = () => {
       try {
         response = await axios.get(
           BACKEND_API_URL+`/items/code/${searchValue}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
           }
-        );
-        
+        }
+      );
+
         if (response.data.success) {
           item = response.data.data;
         }
@@ -341,7 +341,7 @@ const AddStocks = () => {
     if (!formData.itemCode) {
       newErrors.itemCode = 'Item Code is required';
       firstErrorField = itemCodeInputRef;
-    }
+      }
 
     // Location validation
     if (!formData.location) {
@@ -361,7 +361,7 @@ const AddStocks = () => {
       newErrors.newStock = 'Must be a number';
       if (!firstErrorField) {
         firstErrorField = document.querySelector('input[name="newStock"]');
-      }
+    }
     }
 
     // Lower Limit validation
@@ -369,7 +369,7 @@ const AddStocks = () => {
       newErrors.lowerLimit = 'Must be a number';
       if (!firstErrorField) {
         firstErrorField = document.querySelector('input[name="lowerLimit"]');
-      }
+    }
     }
 
     // Item Discount validation
@@ -377,7 +377,7 @@ const AddStocks = () => {
       newErrors.itemDiscount = 'Must be a number';
       if (!firstErrorField) {
         firstErrorField = document.querySelector('input[name="itemDiscount"]');
-      }
+    }
     }
 
     setErrors(newErrors);
@@ -440,10 +440,10 @@ const AddStocks = () => {
         
         // Focus and select item code input after successful update for next search
         setTimeout(() => {
-          if (itemCodeInputRef.current) {
-            itemCodeInputRef.current.focus();
-            itemCodeInputRef.current.select();
-          }
+        if (itemCodeInputRef.current) {
+          itemCodeInputRef.current.focus();
+          itemCodeInputRef.current.select();
+        }
         }, 100);
       } else {
         throw new Error(response.data.message || 'Failed to update stock');

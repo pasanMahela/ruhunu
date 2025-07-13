@@ -7,6 +7,7 @@ import {
   FiChevronRight, FiChevronLeft, FiFileText, FiSearch, FiActivity, FiEdit2
 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
+import { COMPANY, UI } from '../constants/appConfig';
 
 const SideNav = () => {
   const { user, logout } = useAuth();
@@ -154,10 +155,10 @@ const SideNav = () => {
                   </div>
                   <div className="flex flex-col">
                     <div className="text-gray-800 font-bold text-lg leading-tight whitespace-nowrap">
-                      Ruhunu Tyre House
+                    {COMPANY.NAME}
                     </div>
                     <div className="text-blue-600 text-sm font-medium whitespace-nowrap">
-                      POS System
+                    {UI.SIDEBAR_TITLE}
                     </div>
                   </div>
                 </motion.div>
@@ -267,10 +268,10 @@ const SideNav = () => {
                 </div>
                 <div className="flex flex-col">
                   <div className="text-gray-800 font-bold text-lg leading-tight whitespace-nowrap">
-                    Ruhunu Tyre House
+                    {COMPANY.NAME}
                   </div>
                   <div className="text-blue-600 text-sm font-medium whitespace-nowrap">
-                    POS System
+                    {UI.SIDEBAR_TITLE}
                   </div>
                 </div>
               </div>

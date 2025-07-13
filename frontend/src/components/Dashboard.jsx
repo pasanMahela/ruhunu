@@ -56,7 +56,7 @@ const Dashboard = () => {
     todayTransactions: 0,
     todayItems: 0,
   });
-
+  
   const [lowStockItems, setLowStockItems] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [hourlyData, setHourlyData] = useState(null);
@@ -104,8 +104,8 @@ const Dashboard = () => {
   };
 
   // Fetch dashboard data
-  const fetchDashboardData = async () => {
-    try {
+    const fetchDashboardData = async () => {
+      try {
       const response = await api.get('/dashboard/stats');
       const data = response.data;
       
@@ -117,16 +117,16 @@ const Dashboard = () => {
         todayItems: stats.todayItems,
       });
       
-      setStats(data.stats);
-      setLowStockItems(data.lowStockItems);
-      setRecentActivity(data.recentActivity);
-      setSalesData(data.salesData);
-      setTopSellingItems(data.topSellingItems);
+        setStats(data.stats);
+        setLowStockItems(data.lowStockItems);
+        setRecentActivity(data.recentActivity);
+        setSalesData(data.salesData);
+        setTopSellingItems(data.topSellingItems);
       setLastUpdated(new Date());
-      setError(null);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      setError('Failed to load dashboard data');
+        setError(null);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        setError('Failed to load dashboard data');
     }
   };
 
@@ -151,17 +151,17 @@ const Dashboard = () => {
       ]);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } finally {
+        setLoading(false);
+      }
+    };
 
   useEffect(() => {
     loadAllData();
 
     // Set up real-time updates every 30 seconds
     intervalRef.current = setInterval(() => {
-      fetchDashboardData();
+    fetchDashboardData();
       fetchHourlyData();
     }, 30000);
 
@@ -448,13 +448,13 @@ const Dashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-bold bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text text-transparent"
-          >
-            Dashboard
-          </motion.h1>
+        >
+          Dashboard
+        </motion.h1>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-gray-600">
               Last updated: {lastUpdated.toLocaleTimeString()}
@@ -488,7 +488,7 @@ const Dashboard = () => {
                     {calculateChange(stats.todaySales, previousStats.todaySales)}
                   </span>
                   <span className="text-sm text-gray-500 ml-2">vs yesterday</span>
-                </div>
+              </div>
               </div>
               <div className="text-3xl">💰</div>
             </div>
@@ -509,7 +509,7 @@ const Dashboard = () => {
                     {calculateChange(stats.todayTransactions || 0, previousStats.todayTransactions)}
                   </span>
                   <span className="text-sm text-gray-500 ml-2">vs yesterday</span>
-                </div>
+              </div>
               </div>
               <div className="text-3xl">🛒</div>
             </div>
@@ -530,7 +530,7 @@ const Dashboard = () => {
                     {calculateChange(stats.todayItems || 0, previousStats.todayItems)}
                   </span>
                   <span className="text-sm text-gray-500 ml-2">vs yesterday</span>
-                </div>
+              </div>
               </div>
               <div className="text-3xl">📦</div>
             </div>
@@ -551,7 +551,7 @@ const Dashboard = () => {
                     {stats.totalItems} items
                   </span>
                   <span className="text-sm text-gray-500 ml-2">in stock</span>
-                </div>
+              </div>
               </div>
               <div className="text-3xl">📊</div>
             </div>
@@ -629,42 +629,42 @@ const Dashboard = () => {
         {/* Performance Insights */}
         <PerformanceInsights />
 
-        {/* Modal for all low stock items */}
-        {showAllLowStock && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/10">
-            <div className="bg-white rounded-lg p-8 w-full max-w-3xl mx-4 border-2 border-blue-200 shadow-lg">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-2xl font-semibold text-gray-800">All Low Stock Items</h3>
-                <button
-                  onClick={() => setShowAllLowStock(false)}
-                  className="text-gray-600 hover:text-gray-800 text-2xl font-bold"
-                >
-                  &times;
-                </button>
-              </div>
-              <div className="space-y-2 max-h-[70vh] overflow-y-auto">
-                {filteredLowStockItems.map((item) => (
-                  <div key={item._id} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <div>
-                      <p className="text-gray-800 font-medium text-lg">{item.name}</p>
-                      <p className="text-gray-600 text-sm">{item.itemCode}</p>
+          {/* Modal for all low stock items */}
+          {showAllLowStock && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/10">
+              <div className="bg-white rounded-lg p-8 w-full max-w-3xl mx-4 border-2 border-blue-200 shadow-lg">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-2xl font-semibold text-gray-800">All Low Stock Items</h3>
+                  <button
+                    onClick={() => setShowAllLowStock(false)}
+                    className="text-gray-600 hover:text-gray-800 text-2xl font-bold"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto">
+                  {filteredLowStockItems.map((item) => (
+                    <div key={item._id} className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
+                      <div>
+                        <p className="text-gray-800 font-medium text-lg">{item.name}</p>
+                        <p className="text-gray-600 text-sm">{item.itemCode}</p>
+                      </div>
+                      <div className="flex items-center">
+                        <span className={`px-3 py-2 rounded-full text-sm font-medium ${
+                          item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
+                        }`}>
+                          {item.quantityInStock} in stock
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center">
-                      <span className={`px-3 py-2 rounded-full text-sm font-medium ${
-                        item.quantityInStock <= (item.lowerLimit ?? item.minStockLevel) ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'
-                      }`}>
-                        {item.quantityInStock} in stock
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {filteredLowStockItems.length === 0 && (
-                  <div className="text-gray-600 text-center py-4">No low stock items</div>
-                )}
+                  ))}
+                  {filteredLowStockItems.length === 0 && (
+                    <div className="text-gray-600 text-center py-4">No low stock items</div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Enhanced Quick Actions */}
         <motion.div

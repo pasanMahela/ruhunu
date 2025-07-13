@@ -1,4 +1,5 @@
 import React from 'react';
+import { COMPANY, CONTACT, PRINT } from '../constants/appConfig';
 
 const BillTemplate = {
   // Generate HTML for printing
@@ -7,10 +8,10 @@ const BillTemplate = {
       showCompanyHeader = true,
       showCustomerInfo = true,
       showPaymentInfo = true,
-      companyName = 'Ruhunu Tyre House',
-      companyContact = '📞 Support: 077-123-4567',
-      companyEmail = '📧 info@ruhunutyre.lk',
-      title = 'Sales Receipt'
+      companyName = COMPANY.NAME,
+      companyContact = `📞 Support: ${CONTACT.SUPPORT_PHONE}`,
+      companyEmail = `📧 ${CONTACT.SUPPORT_EMAIL}`,
+      title = PRINT.BILL_TITLE
     } = options;
 
     const saleDate = new Date(billData.createdAt || billData.saleDate || Date.now()).toLocaleString();
@@ -96,9 +97,19 @@ const BillTemplate = {
              .total-section table {
                width: 100%;
                font-size: 11px;
+               border-collapse: collapse;
              }
              .total-section td {
                padding: 1px 0;
+             }
+             .total-section td:first-child {
+               width: 60%;
+               text-align: left;
+             }
+             .total-section td:last-child {
+               width: 40%;
+               text-align: right;
+               font-family: monospace;
              }
              .total-section .grand-total {
                font-weight: bold;
@@ -143,6 +154,16 @@ const BillTemplate = {
                }
                .items-table {
                  font-size: 9px;
+               }
+               .total-section table {
+                 font-size: 10px;
+               }
+               .total-section td:last-child {
+                 font-family: monospace;
+                 font-weight: normal;
+               }
+               .total-section .grand-total td:last-child {
+                 font-weight: bold;
                }
                .footer {
                  margin-top: 10px;
@@ -200,26 +221,26 @@ const BillTemplate = {
              <table>
                <tr>
                  <td>Subtotal:</td>
-                 <td class="text-right">${subtotal.toFixed(2)}</td>
+                 <td>${subtotal.toFixed(2)}</td>
                </tr>
                ${totalDiscount > 0 ? `
                  <tr>
                    <td>Discount:</td>
-                   <td class="text-right">${totalDiscount.toFixed(2)}</td>
+                   <td>${totalDiscount.toFixed(2)}</td>
                  </tr>
                ` : ''}
                <tr class="grand-total">
                  <td>TOTAL:</td>
-                 <td class="text-right">${netTotal.toFixed(2)}</td>
+                 <td>${netTotal.toFixed(2)}</td>
                </tr>
                ${showPaymentInfo ? `
                  <tr>
                    <td>Paid:</td>
-                   <td class="text-right">${amountPaid.toFixed(2)}</td>
+                   <td>${amountPaid.toFixed(2)}</td>
                  </tr>
                  <tr>
                    <td>${balance >= 0 ? 'Change:' : 'Due:'}</td>
-                   <td class="text-right">${Math.abs(balance).toFixed(2)}</td>
+                   <td>${Math.abs(balance).toFixed(2)}</td>
                  </tr>
                ` : ''}
              </table>
@@ -262,9 +283,9 @@ const BillTemplate = {
       showCompanyHeader: true,
       showCustomerInfo: true,
       showPaymentInfo: true,
-      companyName: 'RUHUNU TYRE HOUSE',
-      companyContact: 'Tel: 077-123-4567',
-      companyEmail: 'info@ruhunutyre.lk',
+      companyName: COMPANY.NAME.toUpperCase(),
+      companyContact: `Tel: ${CONTACT.PHONE}`,
+      companyEmail: CONTACT.EMAIL,
       title: 'RECEIPT'
     };
     

@@ -172,7 +172,7 @@ const Inventory = () => {
     const maxPriceNum = filters.maxPrice ? Number(filters.maxPrice) : null;
     
     return items
-      .filter(item => {
+    .filter(item => {
         // Search filter
         if (debouncedSearchTerm && !(
           item.name?.toLowerCase().includes(searchLower) ||
@@ -208,21 +208,21 @@ const Inventory = () => {
         if (maxPriceNum !== null && item.retailPrice > maxPriceNum) return false;
 
         return true;
-      })
-      .sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        if (sortField === 'category') {
-          aValue = a.category?.name || '';
-          bValue = b.category?.name || '';
-        }
-        
-        if (typeof aValue === 'string') {
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-        }
-        
+    })
+    .sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      if (sortField === 'category') {
+        aValue = a.category?.name || '';
+        bValue = b.category?.name || '';
+      }
+      
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
         const result = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
         return sortDirection === 'asc' ? result : -result;
       });
@@ -230,14 +230,14 @@ const Inventory = () => {
 
   // Optimized keyboard shortcuts with useCallback
   const handleKeyPress = useCallback((e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-      e.preventDefault();
-      setIsAddModalOpen(true);
-    }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      e.preventDefault();
-      document.getElementById('search-input')?.focus();
-    }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        setIsAddModalOpen(true);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('search-input')?.focus();
+      }
   }, []);
 
   useEffect(() => {
@@ -386,7 +386,7 @@ const Inventory = () => {
 
   // Memoized summary stats for performance
   const summaryStats = useMemo(() => {
-    const totalItems = filteredAndSortedItems.length;
+  const totalItems = filteredAndSortedItems.length;
     let totalValue = 0;
     let lowStockItems = 0;
     let outOfStockItems = 0;

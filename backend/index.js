@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
 const items = require('./routes/items');
 const cartRoutes = require('./routes/cart');
 const salesRoutes = require('./routes/sales');
@@ -26,6 +27,9 @@ app.use(cors({
 
 // Middleware
 app.use(express.json());
+
+// Serve static files for profile pictures
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
 mongoose.connect(process.env.MONGODB_URI, {

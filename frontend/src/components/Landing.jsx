@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { COMPANY } from '../constants/appConfig';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ const Landing = () => {
             transition={{ duration: 0.5 }}
             className="text-4xl sm:text-5xl md:text-6xl font-bold bg-gradient-to-r from-blue-700 via-blue-800 to-blue-900 bg-clip-text text-transparent mb-6"
           >
-            RUHUNU TYRE HOUSE - GALNEWA
+            {COMPANY.FULL_NAME}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}

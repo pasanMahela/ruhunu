@@ -8,21 +8,24 @@ const StockPurchase = require('../models/StockPurchase');
 // @route   GET /api/item-balance
 // @access  Private (Admin only)
 exports.getItemBalance = asyncHandler(async (req, res, next) => {
-  // Get last month's date range
+  // Get last 30 days date range
   const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+  
+  // Set time to start of day for thirtyDaysAgo and end of day for now
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  now.setHours(23, 59, 59, 999);
 
   // Get all items with their categories
   const items = await Item.find().populate('category', 'name');
 
-  // Get last month's purchases
+  // Get last 30 days purchases
   const lastMonthPurchases = await StockPurchase.aggregate([
     {
       $match: {
         createdAt: {
-          $gte: lastMonth,
-          $lte: lastMonthEnd
+          $gte: thirtyDaysAgo,
+          $lte: now
         }
       }
     },
@@ -37,13 +40,13 @@ exports.getItemBalance = asyncHandler(async (req, res, next) => {
     }
   ]);
 
-  // Get last month's sales
+  // Get last 30 days sales
   const lastMonthSales = await Sale.aggregate([
     {
       $match: {
         createdAt: {
-          $gte: lastMonth,
-          $lte: lastMonthEnd
+          $gte: thirtyDaysAgo,
+          $lte: now
         }
       }
     },
@@ -98,7 +101,7 @@ exports.getItemBalance = asyncHandler(async (req, res, next) => {
         quantity: sale.totalQuantity,
         value: sale.totalValue
       },
-      remainingBalance: item.quantityInStock + purchase.totalQuantity - sale.totalQuantity
+      remainingBalance: purchase.totalQuantity - sale.totalQuantity
     };
   });
 
@@ -106,8 +109,8 @@ exports.getItemBalance = asyncHandler(async (req, res, next) => {
     success: true,
     data: balanceReport,
     period: {
-      start: lastMonth,
-      end: lastMonthEnd
+      start: thirtyDaysAgo,
+      end: now
     }
   });
 });
@@ -122,19 +125,22 @@ exports.getItemBalanceById = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`Item not found with id of ${req.params.itemId}`, 404));
   }
 
-  // Get last month's date range
+  // Get last 30 days date range
   const now = new Date();
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+  const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+  
+  // Set time to start of day for thirtyDaysAgo and end of day for now
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  now.setHours(23, 59, 59, 999);
 
-  // Get last month's purchases for this item
+  // Get last 30 days purchases for this item
   const lastMonthPurchases = await StockPurchase.aggregate([
     {
       $match: {
         item: item._id,
         createdAt: {
-          $gte: lastMonth,
-          $lte: lastMonthEnd
+          $gte: thirtyDaysAgo,
+          $lte: now
         }
       }
     },
@@ -148,13 +154,13 @@ exports.getItemBalanceById = asyncHandler(async (req, res, next) => {
     }
   ]);
 
-  // Get last month's sales for this item
+  // Get last 30 days sales for this item
   const lastMonthSales = await Sale.aggregate([
     {
       $match: {
         createdAt: {
-          $gte: lastMonth,
-          $lte: lastMonthEnd
+          $gte: thirtyDaysAgo,
+          $lte: now
         }
       }
     },
@@ -199,10 +205,10 @@ exports.getItemBalanceById = asyncHandler(async (req, res, next) => {
       value: sale.totalValue,
       count: sale.saleCount
     },
-    remainingBalance: item.quantityInStock + purchase.totalQuantity - sale.totalQuantity,
+    remainingBalance: purchase.totalQuantity - sale.totalQuantity,
     period: {
-      start: lastMonth,
-      end: lastMonthEnd
+      start: thirtyDaysAgo,
+      end: now
     }
   };
 

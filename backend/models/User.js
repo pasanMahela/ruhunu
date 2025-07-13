@@ -22,12 +22,44 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
+    enum: ['user', 'manager', 'admin'],
     default: 'user'
   },
   isActive: {
     type: Boolean,
     default: true
+  },
+  profilePicture: {
+    type: String,
+    default: ''
+  },
+  permissions: {
+    inventory: {
+      type: [String],
+      default: []
+    },
+    sales: {
+      type: [String],
+      default: []
+    },
+    users: {
+      type: [String],
+      default: []
+    },
+    analytics: {
+      type: [String],
+      default: []
+    },
+    settings: {
+      type: [String],
+      default: []
+    }
+  },
+  lastLogin: {
+    type: Date
+  },
+  passwordResetAt: {
+    type: Date
   }
 }, {
   timestamps: true
@@ -50,6 +82,40 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
+
+// Set default permissions based on role
+userSchema.pre('save', function(next) {
+  if (this.isNew || this.isModified('role')) {
+    const defaultPermissions = {
+      admin: {
+        inventory: ['view', 'add', 'edit', 'delete', 'export'],
+        sales: ['view', 'create', 'edit', 'delete', 'reports'],
+        users: ['view', 'add', 'edit', 'delete', 'permissions'],
+        analytics: ['view', 'export', 'advanced'],
+        settings: ['view', 'edit', 'backup', 'restore']
+      },
+      manager: {
+        inventory: ['view', 'add', 'edit', 'export'],
+        sales: ['view', 'create', 'edit', 'reports'],
+        users: ['view'],
+        analytics: ['view', 'export'],
+        settings: ['view']
+      },
+      user: {
+        inventory: ['view'],
+        sales: ['view', 'create'],
+        users: [],
+        analytics: ['view'],
+        settings: []
+      }
+    };
+
+    if (defaultPermissions[this.role]) {
+      this.permissions = defaultPermissions[this.role];
+    }
+  }
+  next();
+});
 
 const User = mongoose.model('User', userSchema);
 

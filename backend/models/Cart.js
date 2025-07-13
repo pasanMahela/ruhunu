@@ -10,12 +10,6 @@ const cartItemSchema = new mongoose.Schema({
     type: Number,
     required: true,
     min: 1
-  },
-  discount: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 100
   }
 });
 
