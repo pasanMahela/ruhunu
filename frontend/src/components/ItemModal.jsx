@@ -18,7 +18,8 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
     lowerLimit: 0,
     purchasePrice: 0,
     retailPrice: 0,
-    discount: 0
+    discount: 0,
+    barcode: ''
   });
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
@@ -34,7 +35,8 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
         lowerLimit: item.lowerLimit || 0,
         purchasePrice: item.purchasePrice || 0,
         retailPrice: item.retailPrice || 0,
-        discount: item.discount || 0
+        discount: item.discount || 0,
+        barcode: item.barcode || ''
       });
     } else {
       setFormData({
@@ -45,7 +47,8 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
         lowerLimit: 0,
         purchasePrice: 0,
         retailPrice: 0,
-        discount: 0
+        discount: 0,
+        barcode: ''
       });
     }
   }, [item]);
@@ -96,6 +99,9 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
         return;
       }
 
+      console.log('Submitting form data:', formData);
+      console.log('Barcode value:', formData.barcode, 'Type:', typeof formData.barcode);
+
       const config = {
         headers: {
           Authorization: `Bearer ${token}`
@@ -109,6 +115,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
           formData,
           config
         );
+        console.log('Update response:', response.data);
         toast.success('Item updated successfully');
       } else {
         // Create new item
@@ -117,6 +124,7 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
           formData,
           config
         );
+        console.log('Create response:', response.data);
         toast.success(`Item created successfully with code: ${response.data.data.itemCode}`);
       }
 
@@ -307,6 +315,23 @@ const ItemModal = ({ isOpen, onClose, onSuccess, item = null }) => {
                       min="0"
                       max="100"
                       step="1"
+                      className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="barcode"
+                      className="block text-gray-700 text-sm font-medium mb-2"
+                    >
+                      Barcode
+                    </label>
+                    <input
+                      type="text"
+                      id="barcode"
+                      name="barcode"
+                      value={formData.barcode}
+                      onChange={handleChange}
                       className="w-full px-4 py-2 bg-white border-2 border-blue-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     />
                   </div>

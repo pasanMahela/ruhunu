@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiArrowUp, FiArrowDown, FiPrinter, FiDownload, FiFilter, FiX, FiPackage, FiEye, FiGrid, FiList, FiAlertTriangle, FiCheckCircle, FiDollarSign } from 'react-icons/fi';
 import axios from 'axios';
@@ -35,6 +35,7 @@ const Inventory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [sortField, setSortField] = useState('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [filters, setFilters] = useState({
@@ -53,10 +54,12 @@ const Inventory = () => {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'grid'
   const [selectedItems, setSelectedItems] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(50); // Limit items per page for performance
 
   const BACKEND_API_URL = API_URL;
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -80,14 +83,14 @@ const Inventory = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [BACKEND_API_URL]);
 
   useEffect(() => {
     fetchItems();
   }, []);
 
   // Fetch categories
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(BACKEND_API_URL+'/categories', {
@@ -99,29 +102,42 @@ const Inventory = () => {
     } catch (err) {
       console.error('Error fetching categories:', err);
     }
-  };
+  }, [BACKEND_API_URL]);
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
-  // Extract unique locations from items
-  useEffect(() => {
+  // Extract unique locations from items - memoized
+  const uniqueLocations = useMemo(() => {
     if (items.length > 0) {
-      const uniqueLocations = [...new Set(items.map(item => item.location).filter(Boolean))];
-      setLocations(uniqueLocations);
+      return [...new Set(items.map(item => item.location).filter(Boolean))];
     }
+    return [];
   }, [items]);
 
-  const handleFilterChange = (e) => {
+  useEffect(() => {
+    setLocations(uniqueLocations);
+  }, [uniqueLocations]);
+
+  // Debounce search term for performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const handleFilterChange = useCallback((e) => {
     const { name, value } = e.target;
     setFilters(prev => ({
       ...prev,
       [name]: value
     }));
-  };
+  }, []);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setFilters({
       category: '',
       location: '',
@@ -130,79 +146,104 @@ const Inventory = () => {
       maxPrice: ''
     });
     setSearchTerm('');
-  };
+    setDebouncedSearchTerm('');
+  }, []);
 
-  const handleSort = (field) => {
+  const handleSort = useCallback((field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
     }
-  };
+  }, [sortField, sortDirection]);
 
-  const getSortIcon = (field) => {
+  const getSortIcon = useCallback((field) => {
     if (sortField !== field) return null;
     return sortDirection === 'asc' ? <FiArrowUp className="w-4 h-4" /> : <FiArrowDown className="w-4 h-4" />;
-  };
+  }, [sortField, sortDirection]);
 
-  const filteredAndSortedItems = Array.isArray(items) ? items
-    .filter(item => {
-      const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.itemCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.category?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesCategory = !filters.category || item.category?.name === filters.category;
-      const matchesLocation = !filters.location || item.location === filters.location;
-      
-      const stockStatus = getStockStatus(item.quantityInStock, item.lowerLimit);
-      const matchesStockStatus = !filters.stockStatus || 
-        (filters.stockStatus === 'out' && item.quantityInStock === 0) ||
-        (filters.stockStatus === 'low' && item.quantityInStock > 0 && item.quantityInStock <= (item.lowerLimit || 10)) ||
-        (filters.stockStatus === 'in' && item.quantityInStock > (item.lowerLimit || 10));
-      
-      const matchesMinPrice = !filters.minPrice || item.retailPrice >= Number(filters.minPrice);
-      const matchesMaxPrice = !filters.maxPrice || item.retailPrice <= Number(filters.maxPrice);
+  // Memoized filtering and sorting for performance
+  const filteredAndSortedItems = useMemo(() => {
+    if (!Array.isArray(items)) return [];
+    
+    const searchLower = debouncedSearchTerm.toLowerCase();
+    const minPriceNum = filters.minPrice ? Number(filters.minPrice) : null;
+    const maxPriceNum = filters.maxPrice ? Number(filters.maxPrice) : null;
+    
+    return items
+      .filter(item => {
+        // Search filter
+        if (debouncedSearchTerm && !(
+          item.name?.toLowerCase().includes(searchLower) ||
+          item.itemCode?.toLowerCase().includes(searchLower) ||
+          item.barcode?.toLowerCase().includes(searchLower) ||
+          item.category?.name?.toLowerCase().includes(searchLower)
+        )) {
+          return false;
+        }
+        
+        // Category filter
+        if (filters.category && item.category?.name !== filters.category) {
+          return false;
+        }
+        
+        // Location filter
+        if (filters.location && item.location !== filters.location) {
+          return false;
+        }
+        
+        // Stock status filter
+        if (filters.stockStatus) {
+          const stock = item.quantityInStock;
+          const limit = item.lowerLimit || 10;
+          
+          if (filters.stockStatus === 'out' && stock !== 0) return false;
+          if (filters.stockStatus === 'low' && (stock === 0 || stock > limit)) return false;
+          if (filters.stockStatus === 'in' && stock <= limit) return false;
+        }
+        
+        // Price filters
+        if (minPriceNum !== null && item.retailPrice < minPriceNum) return false;
+        if (maxPriceNum !== null && item.retailPrice > maxPriceNum) return false;
 
-      return matchesSearch && matchesCategory && matchesLocation && matchesStockStatus && matchesMinPrice && matchesMaxPrice;
-    })
-    .sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      if (sortField === 'category') {
-        aValue = a.category?.name || '';
-        bValue = b.category?.name || '';
-      }
-      
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      
-      if (sortDirection === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    }) : [];
+        return true;
+      })
+      .sort((a, b) => {
+        let aValue = a[sortField];
+        let bValue = b[sortField];
+        
+        if (sortField === 'category') {
+          aValue = a.category?.name || '';
+          bValue = b.category?.name || '';
+        }
+        
+        if (typeof aValue === 'string') {
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+        }
+        
+        const result = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+        return sortDirection === 'asc' ? result : -result;
+      });
+  }, [items, debouncedSearchTerm, filters, sortField, sortDirection]);
 
-  // Keyboard shortcuts
+  // Optimized keyboard shortcuts with useCallback
+  const handleKeyPress = useCallback((e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      e.preventDefault();
+      setIsAddModalOpen(true);
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault();
+      document.getElementById('search-input')?.focus();
+    }
+  }, []);
+
   useEffect(() => {
-    const handleKeyPress = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-        e.preventDefault();
-        setIsAddModalOpen(true);
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault();
-        document.getElementById('search-input')?.focus();
-      }
-    };
-
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
+  }, [handleKeyPress]);
 
   const handleDelete = async (item) => {
     try {
@@ -324,6 +365,7 @@ const Inventory = () => {
   const handleExportToExcel = () => {
     const items = filteredAndSortedItems.map(item => ({
       'Item Code': item.itemCode,
+      'Barcode': item.barcode || '',
       'Name': item.name,
       'Category': item.category?.name || 'Uncategorized',
       'Location': item.location,
@@ -342,11 +384,40 @@ const Inventory = () => {
     toast.success('Inventory exported to Excel successfully');
   };
 
-  // Calculate summary stats
-  const totalItems = filteredAndSortedItems.length;
-  const totalValue = filteredAndSortedItems.reduce((sum, item) => sum + (item.quantityInStock * item.retailPrice), 0);
-  const lowStockItems = filteredAndSortedItems.filter(item => item.quantityInStock <= (item.lowerLimit || 10) && item.quantityInStock > 0).length;
-  const outOfStockItems = filteredAndSortedItems.filter(item => item.quantityInStock === 0).length;
+  // Memoized summary stats for performance
+  const summaryStats = useMemo(() => {
+    const totalItems = filteredAndSortedItems.length;
+    let totalValue = 0;
+    let lowStockItems = 0;
+    let outOfStockItems = 0;
+    
+    filteredAndSortedItems.forEach(item => {
+      totalValue += item.quantityInStock * item.retailPrice;
+      const stock = item.quantityInStock;
+      const limit = item.lowerLimit || 10;
+      
+      if (stock === 0) {
+        outOfStockItems++;
+      } else if (stock <= limit) {
+        lowStockItems++;
+      }
+    });
+    
+    return { totalItems, totalValue, lowStockItems, outOfStockItems };
+  }, [filteredAndSortedItems]);
+
+  const { totalItems, totalValue, lowStockItems, outOfStockItems } = summaryStats;
+
+  // Pagination
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedItems = filteredAndSortedItems.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, filters]);
 
   if (loading) {
     return <Loading message="Loading inventory..." />;
@@ -368,7 +439,7 @@ const Inventory = () => {
     );
   }
 
-  const ItemCard = ({ item }) => {
+  const ItemCard = memo(({ item }) => {
     const stockStatus = getStockStatus(item.quantityInStock, item.lowerLimit);
     const StatusIcon = stockStatus.icon;
     
@@ -384,6 +455,11 @@ const Inventory = () => {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm font-medium text-gray-500">#{item.itemCode}</span>
+              {item.barcode && (
+                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                  {item.barcode}
+                </span>
+              )}
               <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getCategoryColor(item.category)}`}>
                 {item.category?.name || 'Uncategorized'}
               </span>
@@ -446,7 +522,7 @@ const Inventory = () => {
         </div>
       </motion.div>
     );
-  };
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -518,7 +594,7 @@ const Inventory = () => {
                 <input
                   type="text"
                   id="search-input"
-                  placeholder="Search items, codes, categories..."
+                  placeholder="Search items, codes, barcodes, categories..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -695,7 +771,7 @@ const Inventory = () => {
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             <AnimatePresence>
-              {filteredAndSortedItems.map((item) => (
+              {paginatedItems.map((item) => (
                 <ItemCard key={item._id} item={item} />
               ))}
             </AnimatePresence>
@@ -713,6 +789,15 @@ const Inventory = () => {
                       <div className="flex items-center gap-2">
                         Item Code
                         {getSortIcon('itemCode')}
+                      </div>
+                    </th>
+                    <th 
+                      onClick={() => handleSort('barcode')}
+                      className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        Barcode
+                        {getSortIcon('barcode')}
                       </div>
                     </th>
                     <th 
@@ -772,7 +857,7 @@ const Inventory = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   <AnimatePresence>
-                    {filteredAndSortedItems.map((item) => {
+                    {paginatedItems.map((item) => {
                       const stockStatus = getStockStatus(item.quantityInStock, item.lowerLimit);
                       const StatusIcon = stockStatus.icon;
                       
@@ -786,6 +871,9 @@ const Inventory = () => {
                         >
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             #{item.itemCode}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {item.barcode || 'N/A'}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 max-w-xs">
                             <div className="truncate" title={item.name}>
@@ -846,13 +934,76 @@ const Inventory = () => {
                 </tbody>
               </table>
               
-              {filteredAndSortedItems.length === 0 && (
+              {totalItems === 0 && (
                 <div className="text-center py-12">
                   <FiPackage className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500 text-lg font-medium">No items found</p>
                   <p className="text-gray-400">Try adjusting your search or filters</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mt-6">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Showing {startIndex + 1} to {Math.min(endIndex, totalItems)} of {totalItems} results
+              </div>
+              <div className="flex items-center gap-2">
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </motion.button>
+                
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 7) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 4) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 3) {
+                      pageNum = totalPages - 6 + i;
+                    } else {
+                      pageNum = currentPage - 3 + i;
+                    }
+                    
+                    return (
+                      <motion.button
+                        key={pageNum}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-2 text-sm rounded-md ${
+                          currentPage === pageNum
+                            ? 'bg-blue-600 text-white'
+                            : 'border border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {pageNum}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </motion.button>
+              </div>
             </div>
           </div>
         )}

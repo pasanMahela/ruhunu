@@ -77,7 +77,8 @@ const AddStocks = () => {
     purchasePrice: '',
     retailPrice: '',
     itemDiscount: '',
-    newStock: ''
+    newStock: '',
+    barcode: ''
   });
   const [errors, setErrors] = useState({});
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -119,7 +120,6 @@ const AddStocks = () => {
         e.preventDefault();
         if (itemCodeInputRef.current) {
           itemCodeInputRef.current.focus();
-          itemCodeInputRef.current.select();
         }
       }
       
@@ -181,27 +181,70 @@ const AddStocks = () => {
         throw new Error('Authentication token not found');
       }
 
-      const response = await axios.get(
-        BACKEND_API_URL+`/items/code/${formData.itemCode}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      const searchValue = formData.itemCode.trim();
+      let response;
+      let item;
+
+      // First try to search by item code
+      try {
+        response = await axios.get(
+          BACKEND_API_URL+`/items/code/${searchValue}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (response.data.success) {
+          item = response.data.data;
+        }
+      } catch (codeError) {
+        // If item code search fails, try barcode search
+        try {
+          response = await axios.get(
+            BACKEND_API_URL+`/items/barcode/${searchValue}`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          if (response.data.success) {
+            item = response.data.data;
+          }
+        } catch (barcodeError) {
+          // If both fail, try general search
+          try {
+            response = await axios.get(
+              BACKEND_API_URL+`/items/search?q=${encodeURIComponent(searchValue)}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+            
+            if (response.data.success && response.data.data.length > 0) {
+              item = response.data.data[0]; // Take the first result
+            }
+          } catch (searchError) {
+            throw new Error('Item not found');
           }
         }
-      );
-
-      if (!response.data.success) {
-        throw new Error(response.data.message || 'Failed to fetch item');
       }
 
-      const item = response.data.data;
       if (!item) {
         throw new Error('Item not found');
       }
 
       setFormData(prev => ({
         ...prev,
+        itemCode: item.itemCode || '', // Always set the actual itemCode from the found item
         itemName: item.name || '',
         description: item.description || '',
         location: item.location || '',
@@ -209,7 +252,8 @@ const AddStocks = () => {
         purchasePrice: item.purchasePrice?.toString() || '',
         retailPrice: item.retailPrice?.toString() || '',
         itemDiscount: item.discount?.toString() || '0',
-        lowerLimit: item.lowerLimit?.toString() || ''
+        lowerLimit: item.lowerLimit?.toString() || '',
+        barcode: item.barcode || ''
       }));
       setErrors({});
       toast.success('Item found! Cursor moved to Location field.');
@@ -230,6 +274,7 @@ const AddStocks = () => {
       // Clear form data on error
       setFormData(prev => ({
         ...prev,
+        itemCode: '', // Clear the itemCode field on error
         itemName: '',
         description: '',
         location: '',
@@ -237,7 +282,8 @@ const AddStocks = () => {
         purchasePrice: '',
         retailPrice: '',
         itemDiscount: '',
-        lowerLimit: ''
+        lowerLimit: '',
+        barcode: ''
       }));
     } finally {
       setSearchLoading(false);
@@ -371,6 +417,7 @@ const AddStocks = () => {
       };
 
       console.log('Sending request with data:', stockData);
+      console.log('Using itemCode for API call:', formData.itemCode);
 
       const response = await axios.patch(
         BACKEND_API_URL+`/items/code/${formData.itemCode}/stock`,
@@ -391,7 +438,7 @@ const AddStocks = () => {
           newStock: ''
         }));
         
-        // Focus and select item code input after successful update
+        // Focus and select item code input after successful update for next search
         setTimeout(() => {
           if (itemCodeInputRef.current) {
             itemCodeInputRef.current.focus();
@@ -841,7 +888,7 @@ const AddStocks = () => {
               <div className="flex gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Item Code *
+                    Item Code / Barcode *
                   </label>
                   <div className="relative">
                     <input
@@ -851,7 +898,7 @@ const AddStocks = () => {
                       value={formData.itemCode}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
-                      placeholder="Enter item code and press Enter or F3 to search"
+                      placeholder="Enter item code, barcode, or item name and press Enter or F3 to search"
                       autoComplete="off"
                       className={`w-full px-4 py-2 bg-white border-2 ${
                         errors.itemCode ? 'border-red-500' : 'border-blue-200'
@@ -928,6 +975,7 @@ const AddStocks = () => {
                     value={formData.location}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     placeholder="Enter location"
                     autoComplete="off"
                     className={`w-full px-4 py-2 bg-white border ${
@@ -964,6 +1012,22 @@ const AddStocks = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Barcode
+                  </label>
+                  <input
+                    type="text"
+                    name="barcode"
+                    value={formData.barcode}
+                    onChange={handleChange}
+                    onKeyPress={handleKeyPress}
+                    readOnly
+                    className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-600 cursor-not-allowed"
+                    tabIndex="-1"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Lower Limit
                   </label>
                   <input
@@ -972,6 +1036,7 @@ const AddStocks = () => {
                     value={formData.lowerLimit}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     min="0"
                     autoComplete="off"
                     className={`w-full px-4 py-2 bg-white border ${
@@ -1013,6 +1078,7 @@ const AddStocks = () => {
                     value={formData.newStock}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     min="0"
                     placeholder="Enter quantity to add"
                     autoComplete="off"
@@ -1042,6 +1108,7 @@ const AddStocks = () => {
                     value={formData.purchasePrice}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     min="0"
                     step="0.01"
                     autoComplete="off"
@@ -1060,6 +1127,7 @@ const AddStocks = () => {
                     value={formData.retailPrice}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     min="0"
                     step="0.01"
                     autoComplete="off"
@@ -1078,6 +1146,7 @@ const AddStocks = () => {
                     value={formData.itemDiscount}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     min="0"
                     max="100"
                     autoComplete="off"

@@ -63,7 +63,7 @@ const customerSchema = new mongoose.Schema({
   },
   customerType: {
     type: String,
-    enum: ['regular', 'wholesale', 'vip'],
+    enum: ['regular', 'wholesale', 'vip', 'banned'],
     default: 'regular'
   },
   creditLimit: {
@@ -111,6 +111,11 @@ const customerSchema = new mongoose.Schema({
   isActive: {
     type: Boolean,
     default: true
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive', 'banned', 'suspended'],
+    default: 'active'
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

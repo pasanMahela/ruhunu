@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { FiCalendar, FiSearch, FiDownload, FiPrinter, FiFilter, FiTrendingUp, FiPackage, FiDollarSign, FiBarChart, FiTag } from 'react-icons/fi';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
+import * as XLSX from 'xlsx';
 import { API_URL } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import PageHeader from '../components/PageHeader';
@@ -254,9 +255,9 @@ const ItemSalesReport = () => {
     printWindow.print();
   };
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const csvContent = [
+  // Export to XLSX
+  const exportToXLSX = () => {
+    const worksheetData = [
       // Header
       ['Date', 'Item Name', 'Item Code', 'Customer', 'Qty', 'Price', 'Discount', 'Total', 'Profit'],
       // Data
@@ -266,23 +267,49 @@ const ItemSalesReport = () => {
         item.itemCode,
         item.customerName,
         item.quantity,
-        item.price.toFixed(2),
-        item.discount.toFixed(2),
-        item.total.toFixed(2),
-        item.profit.toFixed(2)
+        parseFloat(item.price.toFixed(2)),
+        parseFloat(item.discount.toFixed(2)),
+        parseFloat(item.total.toFixed(2)),
+        parseFloat(item.profit.toFixed(2))
       ])
-    ].map(row => row.join(',')).join('\n');
+    ];
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
+    // Create workbook and worksheet
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+    
+    // Add some styling to the header row
+    const headerRange = XLSX.utils.decode_range(worksheet['!ref']);
+    for (let col = headerRange.s.c; col <= headerRange.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (!worksheet[cellAddress]) continue;
+      worksheet[cellAddress].s = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: 'E3F2FD' } }
+      };
+    }
+    
+    // Auto-size columns
+    const colWidths = [];
+    for (let col = 0; col < worksheetData[0].length; col++) {
+      let maxWidth = 0;
+      for (let row = 0; row < worksheetData.length; row++) {
+        const cellValue = worksheetData[row][col]?.toString() || '';
+        maxWidth = Math.max(maxWidth, cellValue.length);
+      }
+      colWidths.push({ wch: Math.min(maxWidth + 2, 30) });
+    }
+    worksheet['!cols'] = colWidths;
+    
+    // Add worksheet to workbook
+    const sheetName = 'Item Sales Report';
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    
+    // Save the file
     const filename = itemCode.trim() 
-      ? `item-sales-${itemCode}-${fromDate}-to-${toDate}.csv`
-      : `item-sales-${fromDate}-to-${toDate}.csv`;
-    link.download = filename;
-    link.click();
-    window.URL.revokeObjectURL(url);
+      ? `item-sales-${itemCode}-${fromDate}-to-${toDate}.xlsx`
+      : `item-sales-${fromDate}-to-${toDate}.xlsx`;
+    XLSX.writeFile(workbook, filename);
   };
 
   return (
@@ -304,12 +331,12 @@ const ItemSalesReport = () => {
             {showFilters ? 'Hide' : 'Show'} Filters
           </button>
           <button
-            onClick={exportToCSV}
+            onClick={exportToXLSX}
             disabled={salesData.length === 0}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
           >
             <FiDownload size={16} />
-            Export CSV
+            Export XLSX
           </button>
           <button
             onClick={printReport}

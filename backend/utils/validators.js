@@ -55,7 +55,15 @@ exports.validateItem = [
   body('discount')
     .optional()
     .isFloat({ min: 0, max: 100 })
-    .withMessage('Discount must be between 0 and 100')
+    .withMessage('Discount must be between 0 and 100'),
+
+  body('barcode')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Barcode cannot exceed 50 characters')
+    .matches(/^[a-zA-Z0-9]*$/)
+    .withMessage('Barcode must contain only letters and numbers')
 ];
 
 // Stock update validation schema

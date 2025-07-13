@@ -65,7 +65,8 @@ const AddNewItem = () => {
     lowerLimit: 0,
     purchasePrice: 0,
     retailPrice: 0,
-    discount: 0
+    discount: 0,
+    barcode: ''
   });
   const [loading, setLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -89,10 +90,11 @@ const AddNewItem = () => {
   useEffect(() => {
     fetchCategories();
     
-    // Focus the first input when component mounts
-    if (nameInputRef.current) {
-      nameInputRef.current.focus();
-    }
+      // Focus the first input when component mounts
+  if (nameInputRef.current) {
+    nameInputRef.current.focus();
+    nameInputRef.current.select();
+  }
 
     // Add keyboard shortcuts
     const handleKeyDown = (e) => {
@@ -193,13 +195,15 @@ const AddNewItem = () => {
       lowerLimit: 0,
       purchasePrice: 0,
       retailPrice: 0,
-      discount: 0
+      discount: 0,
+      barcode: ''
     });
     
-    // Focus the name input after reset
-    if (nameInputRef.current) {
-      nameInputRef.current.focus();
-    }
+      // Focus the name input after reset
+  if (nameInputRef.current) {
+    nameInputRef.current.focus();
+    nameInputRef.current.select();
+  }
   };
 
   const handleSubmit = async (e) => {
@@ -241,6 +245,7 @@ const AddNewItem = () => {
       {
         'Name': '',
         'Category': categories.map(c => c.name).join(', '), // List all categories
+        'Barcode': '',
         'Description': '',
         'Location': '',
         'Lower Limit': '0',
@@ -261,9 +266,10 @@ const AddNewItem = () => {
       ['1. Fields marked with * are required'],
       ['2. Category must be one of the following:'],
       ...categories.map(c => [c.name]),
-      ['3. Prices should be numbers with up to 2 decimal places'],
-      ['4. Discount should be a number between 0 and 100'],
-      ['5. Lower Limit should be a positive number']
+      ['3. Barcode is optional but must be alphanumeric if provided'],
+      ['4. Prices should be numbers with up to 2 decimal places'],
+      ['5. Discount should be a number between 0 and 100'],
+      ['6. Lower Limit should be a positive number']
     ];
     const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
     XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
@@ -472,6 +478,7 @@ const AddNewItem = () => {
       const itemsToAdd = validItems.map(item => ({
         name: item['Name'],
         category: categories.find(c => c.name === item['Category'])?._id,
+        barcode: item['Barcode'] || '',
         description: item['Description'] || '',
         location: item['Location'] || '',
         lowerLimit: Number(item['Lower Limit']) || 0,
@@ -623,6 +630,7 @@ const AddNewItem = () => {
                     value={formData.name}
                     onChange={handleChange}
                     onKeyPress={handleKeyPress}
+                    onFocus={(e) => e.target.select()}
                     required
                     autoComplete="off"
                     className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -660,11 +668,33 @@ const AddNewItem = () => {
                       onClick={() => setIsCategoryModalOpen(true)}
                       title="Add new category"
                       className="px-4 py-2 bg-blue-50 border border-blue-300 rounded-lg text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      tabIndex="3"
+                      tabIndex="4"
                     >
                       <FiPlus size={20} />
                     </button>
                   </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="barcode"
+                    className="block text-gray-700 text-sm font-medium mb-2"
+                  >
+                    Barcode
+                  </label>
+                                      <input
+                      type="text"
+                      id="barcode"
+                      name="barcode"
+                      value={formData.barcode}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      placeholder="Enter barcode (alphanumeric only)"
+                      autoComplete="off"
+                      className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="3"
+                    />
                 </div>
 
                 <div>
@@ -674,17 +704,18 @@ const AddNewItem = () => {
                   >
                     Location
                   </label>
-                  <input
-                    type="text"
-                    id="location"
-                    name="location"
-                    value={formData.location}
-                    onChange={handleChange}
-                    onKeyPress={handleKeyPress}
-                    autoComplete="off"
-                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    tabIndex="4"
-                  />
+                                      <input
+                      type="text"
+                      id="location"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      autoComplete="off"
+                      className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="5"
+                    />
                 </div>
 
                 <div>
@@ -694,18 +725,19 @@ const AddNewItem = () => {
                   >
                     Lower Limit
                   </label>
-                  <input
-                    type="number"
-                    id="lowerLimit"
-                    name="lowerLimit"
-                    value={formData.lowerLimit}
-                    onChange={handleChange}
-                    onKeyPress={handleKeyPress}
-                    min="0"
-                    autoComplete="off"
-                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    tabIndex="5"
-                  />
+                                      <input
+                      type="number"
+                      id="lowerLimit"
+                      name="lowerLimit"
+                      value={formData.lowerLimit}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      autoComplete="off"
+                      className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="6"
+                    />
                 </div>
 
                 <div>
@@ -715,20 +747,21 @@ const AddNewItem = () => {
                   >
                     Purchase Price *
                   </label>
-                  <input
-                    type="number"
-                    id="purchasePrice"
-                    name="purchasePrice"
-                    value={formData.purchasePrice}
-                    onChange={handleChange}
-                    onKeyPress={handleKeyPress}
-                    min="0"
-                    step="0.01"
-                    required
-                    autoComplete="off"
-                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    tabIndex="6"
-                  />
+                                      <input
+                      type="number"
+                      id="purchasePrice"
+                      name="purchasePrice"
+                      value={formData.purchasePrice}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      step="0.01"
+                      required
+                      autoComplete="off"
+                      className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="7"
+                    />
                 </div>
 
                 <div>
@@ -738,20 +771,21 @@ const AddNewItem = () => {
                   >
                     Retail Price *
                   </label>
-                  <input
-                    type="number"
-                    id="retailPrice"
-                    name="retailPrice"
-                    value={formData.retailPrice}
-                    onChange={handleChange}
-                    onKeyPress={handleKeyPress}
-                    min="0"
-                    step="0.01"
-                    required
-                    autoComplete="off"
-                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    tabIndex="7"
-                  />
+                                      <input
+                      type="number"
+                      id="retailPrice"
+                      name="retailPrice"
+                      value={formData.retailPrice}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      step="0.01"
+                      required
+                      autoComplete="off"
+                      className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="8"
+                    />
                 </div>
 
                 <div>
@@ -761,19 +795,20 @@ const AddNewItem = () => {
                   >
                     Discount (%)
                   </label>
-                  <input
-                    type="number"
-                    id="discount"
-                    name="discount"
-                    value={formData.discount}
-                    onChange={handleChange}
-                    onKeyPress={handleKeyPress}
-                    min="0"
-                    max="100"
-                    autoComplete="off"
-                    className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    tabIndex="8"
-                  />
+                                      <input
+                      type="number"
+                      id="discount"
+                      name="discount"
+                      value={formData.discount}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      min="0"
+                      max="100"
+                      autoComplete="off"
+                      className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      tabIndex="9"
+                    />
                 </div>
               </div>
 
@@ -792,7 +827,7 @@ const AddNewItem = () => {
                   rows="3"
                   autoComplete="off"
                   className="w-full px-4 py-2 bg-white border border-blue-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  tabIndex="9"
+                  tabIndex="10"
                 />
               </div>
 
@@ -803,7 +838,7 @@ const AddNewItem = () => {
                   type="button"
                   onClick={() => navigate('/inventory')}
                   className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                  tabIndex="10"
+                  tabIndex="11"
                 >
                   Cancel
                 </motion.button>
@@ -814,7 +849,7 @@ const AddNewItem = () => {
                   type="submit"
                   disabled={loading}
                   className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                  tabIndex="11"
+                  tabIndex="12"
                 >
                   Create Item
                 </motion.button>

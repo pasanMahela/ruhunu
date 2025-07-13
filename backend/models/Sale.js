@@ -76,6 +76,10 @@ const saleSchema = new mongoose.Schema({
     type: String,
     default: 'Walk-in Customer'
   },
+  customerPhone: {
+    type: String,
+    trim: true
+  },
   amountPaid: {
     type: Number,
     required: true,

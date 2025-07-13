@@ -61,6 +61,9 @@ exports.getItem = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin, Cashier)
 exports.createItem = async (req, res) => {
   try {
+    console.log('Creating item with data:', req.body);
+    console.log('Barcode value:', req.body.barcode, 'Type:', typeof req.body.barcode);
+    
     // Check if item with same name exists
     const existingItem = await Item.findOne({ name: req.body.name });
     if (existingItem) {
@@ -68,6 +71,17 @@ exports.createItem = async (req, res) => {
         success: false,
         message: 'An item with this name already exists'
       });
+    }
+
+    // Check if barcode exists (if provided)
+    if (req.body.barcode && req.body.barcode.trim() !== '') {
+      const existingBarcode = await Item.findOne({ barcode: req.body.barcode.trim() });
+      if (existingBarcode) {
+        return res.status(400).json({
+          success: false,
+          message: 'An item with this barcode already exists'
+        });
+      }
     }
 
     // Generate next item code
@@ -78,6 +92,9 @@ exports.createItem = async (req, res) => {
       ...req.body,
       itemCode
     });
+
+    console.log('Item created successfully:', item);
+    console.log('Item barcode after creation:', item.barcode);
 
     res.status(201).json({
       success: true,
@@ -99,7 +116,10 @@ exports.createItem = async (req, res) => {
 exports.updateItem = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name } = req.body;
+    const { name, barcode } = req.body;
+
+    console.log('Updating item with data:', req.body);
+    console.log('Barcode value:', barcode, 'Type:', typeof barcode);
 
     // If name is being updated, check if it's already taken by another item
     if (name) {
@@ -116,6 +136,21 @@ exports.updateItem = async (req, res) => {
       }
     }
 
+    // If barcode is being updated, check if it's already taken by another item
+    if (barcode && barcode.trim() !== '') {
+      const existingBarcode = await Item.findOne({ 
+        barcode: barcode.trim(), 
+        _id: { $ne: id } // Exclude current item from the check
+      });
+      
+      if (existingBarcode) {
+        return res.status(400).json({
+          success: false,
+          message: 'An item with this barcode already exists'
+        });
+      }
+    }
+
     const item = await Item.findByIdAndUpdate(
       id,
       req.body,
@@ -128,6 +163,9 @@ exports.updateItem = async (req, res) => {
         message: 'Item not found'
       });
     }
+
+    console.log('Item updated successfully:', item);
+    console.log('Item barcode after update:', item.barcode);
 
     res.json({
       success: true,
@@ -238,6 +276,23 @@ exports.getItemByCode = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get single item by barcode
+// @route   GET /api/items/barcode/:barcode
+// @access  Private
+exports.getItemByBarcode = asyncHandler(async (req, res, next) => {
+  const item = await Item.findOne({ barcode: req.params.barcode })
+    .populate('category', 'name');
+
+  if (!item) {
+    return next(new ErrorResponse(`Item not found with barcode of ${req.params.barcode}`, 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: item
+  });
+});
+
 // @desc    Search items
 // @route   GET /api/items/search
 // @access  Private
@@ -258,7 +313,8 @@ exports.searchItems = async (req, res) => {
     const items = await Item.find({
       $or: [
         { name: { $regex: q, $options: 'i' } },
-        { itemCode: { $regex: q, $options: 'i' } }
+        { itemCode: { $regex: q, $options: 'i' } },
+        { barcode: { $regex: q, $options: 'i' } }
       ]
     }).populate('category', 'name');
 

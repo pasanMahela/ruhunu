@@ -18,6 +18,7 @@ exports.createSale = async (req, res) => {
       customer,
       customerNic,
       customerName,
+      customerPhone,
       amountPaid,
       balance
     } = req.body;
@@ -60,6 +61,7 @@ exports.createSale = async (req, res) => {
       customer: customer || null,
       customerNic: customerNic || null,
       customerName: customerName?.trim() || 'Walk-in Customer',
+      customerPhone: customerPhone?.trim() || null,
       amountPaid,
       balance,
       cashier: req.user._id
@@ -167,7 +169,28 @@ exports.createSale = async (req, res) => {
 // @access  Private
 exports.getSales = async (req, res) => {
   try {
-    const sales = await Sale.find()
+    // Build query filter
+    let filter = {};
+    
+    // Add customer filter if provided
+    if (req.query.customer) {
+      filter.customer = req.query.customer;
+    }
+    
+    // Add date range filter if provided
+    if (req.query.fromDate && req.query.toDate) {
+      filter.createdAt = {
+        $gte: new Date(req.query.fromDate),
+        $lte: new Date(new Date(req.query.toDate).setHours(23, 59, 59, 999))
+      };
+    }
+    
+    // Add payment status filter if provided
+    if (req.query.paymentStatus) {
+      filter.paymentStatus = req.query.paymentStatus;
+    }
+
+    const sales = await Sale.find(filter)
       .populate('cashier', 'name') // Populate cashier information
       .populate('customer', 'nic name customerType') // Populate customer information
       .sort({ createdAt: -1 });

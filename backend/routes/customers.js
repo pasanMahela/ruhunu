@@ -10,7 +10,8 @@ const {
   updatePurchaseStats,
   getCustomerAnalytics,
   findOrCreateCustomer,
-  testNicValidation
+  testNicValidation,
+  updateCustomerStatus
 } = require('../controllers/customerController');
 
 const router = express.Router();
@@ -47,6 +48,9 @@ router
 
 // Purchase stats update
 router.put('/:id/purchase', updatePurchaseStats);
+
+// Status update
+router.patch('/:id/status', authorize('admin', 'manager'), updateCustomerStatus);
 
 module.exports = router; 
  

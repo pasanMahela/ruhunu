@@ -6,6 +6,7 @@ const {
   getItems,
   getItem,
   getItemByCode,
+  getItemByBarcode,
   createItem,
   createBulkItems,
   updateItem,
@@ -34,6 +35,9 @@ router.get('/', getItems);
 
 // Get item by code (must be before the ID route)
 router.get('/code/:itemCode', getItemByCode);
+
+// Get item by barcode (must be before the ID route)
+router.get('/barcode/:barcode', getItemByBarcode);
 
 // Search items (must be before the ID route)
 router.get('/search', searchItems);

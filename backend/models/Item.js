@@ -15,6 +15,20 @@ const itemSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Item name cannot be more than 100 characters']
   },
+  barcode: {
+    type: String,
+    unique: true,
+    sparse: true, // Allows multiple null values but ensures uniqueness when present
+    trim: true,
+    maxlength: [50, 'Barcode cannot be more than 50 characters'],
+    validate: {
+      validator: function(v) {
+        // Allow empty string or null, but if present, must be alphanumeric
+        return !v || /^[a-zA-Z0-9]+$/.test(v);
+      },
+      message: 'Barcode must contain only letters and numbers'
+    }
+  },
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
@@ -69,6 +83,7 @@ const itemSchema = new mongoose.Schema({
 itemSchema.index({ itemCode: 1 });
 itemSchema.index({ name: 1 });
 itemSchema.index({ category: 1 });
+itemSchema.index({ barcode: 1 });
 
 // Add method to generate next item code
 itemSchema.statics.generateNextItemCode = async function() {
@@ -112,11 +127,17 @@ itemSchema.methods.getProfitMargin = function() {
   return ((this.retailPrice - this.purchasePrice) / this.purchasePrice) * 100;
 };
 
-// Pre-save hook to ensure itemCode is set
+// Pre-save hook to ensure itemCode is set and handle empty barcode
 itemSchema.pre('save', async function(next) {
   if (!this.itemCode) {
     this.itemCode = await this.constructor.generateNextItemCode();
   }
+  
+  // Convert empty barcode string to null for proper sparse indexing
+  if (this.barcode === '') {
+    this.barcode = null;
+  }
+  
   next();
 });
 

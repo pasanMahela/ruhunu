@@ -33,7 +33,8 @@ const EditItem = () => {
     lowerLimit: 0,
     purchasePrice: 0,
     retailPrice: 0,
-    discount: 0
+    discount: 0,
+    barcode: ''
   });
   
   // UI states
@@ -109,41 +110,83 @@ const EditItem = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(
-        `${BACKEND_API_URL}/items/code/${itemCode}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
+      const searchValue = itemCode.trim();
+      let response;
+      let item;
 
-      if (response.data.success) {
-        const item = response.data.data;
-        setSelectedItem(item);
-        setFormData({
-          name: item.name,
-          category: item.category._id,
-          description: item.description || '',
-          location: item.location || '',
-          lowerLimit: item.lowerLimit || 0,
-          purchasePrice: item.purchasePrice || 0,
-          retailPrice: item.retailPrice || 0,
-          discount: item.discount || 0
-        });
+      // First try to search by item code
+      try {
+        response = await axios.get(
+          `${BACKEND_API_URL}/items/code/${searchValue}`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
         
-        toast.success('Item found! You can now edit the details.');
-        
-        // Focus the name field
+        if (response.data.success) {
+          item = response.data.data;
+        }
+      } catch (codeError) {
+        // If item code search fails, try barcode search
+        try {
+          response = await axios.get(
+            `${BACKEND_API_URL}/items/barcode/${searchValue}`,
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          
+          if (response.data.success) {
+            item = response.data.data;
+          }
+        } catch (barcodeError) {
+          // If both fail, try general search
+          try {
+            response = await axios.get(
+              `${BACKEND_API_URL}/items/search?q=${encodeURIComponent(searchValue)}`,
+              {
+                headers: { Authorization: `Bearer ${token}` }
+              }
+            );
+            
+            if (response.data.success && response.data.data.length > 0) {
+              item = response.data.data[0]; // Take the first result
+            }
+          } catch (searchError) {
+            throw new Error('Item not found');
+          }
+        }
+      }
+
+      if (!item) {
+        throw new Error('Item not found');
+      }
+
+      setSelectedItem(item);
+      setFormData({
+        name: item.name,
+        category: item.category._id,
+        description: item.description || '',
+        location: item.location || '',
+        lowerLimit: item.lowerLimit || 0,
+        purchasePrice: item.purchasePrice || 0,
+        retailPrice: item.retailPrice || 0,
+        discount: item.discount || 0,
+        barcode: item.barcode || ''
+      });
+      
+      toast.success('Item found! You can now edit the details.');
+      
+              // Focus the name field
         setTimeout(() => {
           if (nameInputRef.current) {
             nameInputRef.current.focus();
+            nameInputRef.current.select();
           }
         }, 100);
-      } else {
-        throw new Error(response.data.message || 'Item not found');
-      }
     } catch (error) {
       console.error('Error searching item:', error);
-      toast.error(error.response?.data?.message || 'Item not found');
+      toast.error(error.response?.data?.message || error.message || 'Item not found');
       setSelectedItem(null);
       setFormData({
         name: '',
@@ -153,7 +196,8 @@ const EditItem = () => {
         lowerLimit: 0,
         purchasePrice: 0,
         retailPrice: 0,
-        discount: 0
+        discount: 0,
+        barcode: ''
       });
     } finally {
       setSearchLoading(false);
@@ -272,12 +316,14 @@ const EditItem = () => {
       lowerLimit: 0,
       purchasePrice: 0,
       retailPrice: 0,
-      discount: 0
+      discount: 0,
+      barcode: ''
     });
     setErrors({});
     
     if (itemCodeRef.current) {
       itemCodeRef.current.focus();
+      itemCodeRef.current.select();
     }
   };
 
@@ -326,7 +372,7 @@ const EditItem = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <label className="block text-gray-700 text-sm font-medium mb-2">
-                Item Code
+                Item Code / Barcode
               </label>
               <input
                 ref={itemCodeRef}
@@ -334,7 +380,8 @@ const EditItem = () => {
                 value={itemCode}
                 onChange={(e) => setItemCode(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Enter item code and press Enter"
+                onFocus={(e) => e.target.select()}
+                placeholder="Enter item code, barcode, or item name and press Enter"
                 className={`w-full px-4 py-3 bg-white border-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                   errors.itemCode ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -416,6 +463,7 @@ const EditItem = () => {
                       value={formData.name}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
                       className={`w-full px-4 py-3 bg-white border-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                         errors.name ? 'border-red-500' : 'border-gray-300'
                       }`}
@@ -461,6 +509,22 @@ const EditItem = () => {
                     )}
                   </div>
 
+                  {/* Barcode */}
+                  <div>
+                    <label className="block text-gray-700 text-sm font-medium mb-2">
+                      Barcode
+                    </label>
+                    <input
+                      type="text"
+                      name="barcode"
+                      value={formData.barcode}
+                      onChange={handleChange}
+                      onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                    />
+                  </div>
+
                   {/* Description */}
                   <div className="md:col-span-2">
                     <label className="block text-gray-700 text-sm font-medium mb-2">
@@ -486,6 +550,7 @@ const EditItem = () => {
                       value={formData.location}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
                       className="w-full px-4 py-3 bg-white border-2 border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                     />
                   </div>
@@ -501,6 +566,7 @@ const EditItem = () => {
                       value={formData.lowerLimit}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
                       min="0"
                       className={`w-full px-4 py-3 bg-white border-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
                         errors.lowerLimit ? 'border-red-500' : 'border-gray-300'
@@ -522,6 +588,7 @@ const EditItem = () => {
                       value={formData.purchasePrice}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
                       min="0"
                       step="0.01"
                       className={`w-full px-4 py-3 bg-white border-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
@@ -544,6 +611,7 @@ const EditItem = () => {
                       value={formData.retailPrice}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
                       min="0"
                       step="0.01"
                       className={`w-full px-4 py-3 bg-white border-2 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
@@ -566,6 +634,7 @@ const EditItem = () => {
                       value={formData.discount}
                       onChange={handleChange}
                       onKeyPress={handleKeyPress}
+                      onFocus={(e) => e.target.select()}
                       min="0"
                       max="100"
                       step="0.01"

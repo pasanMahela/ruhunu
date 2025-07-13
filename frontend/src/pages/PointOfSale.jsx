@@ -44,6 +44,7 @@ const PointOfSale = () => {
   const [paymentType, setPaymentType] = useState('cash');
   const [customerNic, setCustomerNic] = useState('');
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
@@ -138,28 +139,74 @@ const PointOfSale = () => {
 
     setSearchLoading(true);
     try {
-      const response = await axios.get(
-        `${BACKEND_API_URL}/items/code/${itemCode}`,
-        {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-        }
-      );
+      const searchValue = itemCode.trim();
+      console.log('POS searching for:', searchValue);
+      let response;
+      let item;
+      let foundBy = null; // Track how the item was found
 
-      if (response.data.success) {
-        const item = response.data.data;
-        setSelectedItem(item);
-        setItemName(item.name);
-        setLocation(item.location);
-        setUnitPrice(item.retailPrice.toString());
-        setQuantity(''); // Clear previous quantity
-        setDiscountPercent((item.discount || 0).toString());
+      // First try to search by item code
+      try {
+        response = await axios.get(
+          `${BACKEND_API_URL}/items/code/${searchValue}`,
+          {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+          }
+        );
         
-        // Focus quantity field
-        setTimeout(() => quantityRef.current?.focus(), 100);
-        toast.success('Item found');
+        if (response.data.success) {
+          item = response.data.data;
+          foundBy = 'code';
+        }
+      } catch (codeError) {
+        // If item code search fails, try barcode search
+        try {
+          response = await axios.get(
+            `${BACKEND_API_URL}/items/barcode/${searchValue}`,
+            {
+              headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            }
+          );
+          
+          if (response.data.success) {
+            item = response.data.data;
+            foundBy = 'barcode';
+          }
+        } catch (barcodeError) {
+          // If both exact searches fail, show specific error messages
+          toast.error(`No item found with code "${searchValue}" or barcode "${searchValue}"`);
+          clearItemFields();
+          return;
+        }
+      }
+
+      if (!item) {
+        toast.error(`No item found with code "${searchValue}" or barcode "${searchValue}"`);
+        clearItemFields();
+        return;
+      }
+
+      setSelectedItem(item);
+      setItemCode(item.itemCode || ''); // Set the actual item code from found item
+      console.log('POS found item:', item.name, 'itemCode:', item.itemCode);
+      setItemName(item.name);
+      setLocation(item.location);
+      setUnitPrice(item.retailPrice.toString());
+      setQuantity(''); // Clear previous quantity
+      setDiscountPercent((item.discount || 0).toString());
+      
+      // Focus quantity field
+      setTimeout(() => quantityRef.current?.focus(), 100);
+      
+      // Show specific success message based on how item was found
+      if (foundBy === 'code') {
+        toast.success(`Item found by code "${searchValue}"`);
+      } else if (foundBy === 'barcode') {
+        toast.success(`Item found by barcode "${searchValue}"`);
       }
     } catch (error) {
-      toast.error('Item not found');
+      console.log('POS Search Error:', error.message);
+      toast.error(`No item found with code "${itemCode.trim()}" or barcode "${itemCode.trim()}"`);
       clearItemFields();
     } finally {
       setSearchLoading(false);
@@ -362,14 +409,21 @@ const PointOfSale = () => {
         }
         
         try {
-          console.log('Attempting to create/find customer:', { nic: customerNic.trim(), name: customerName.trim() });
+          console.log('Attempting to create/find customer:', { nic: customerNic.trim(), name: customerName.trim(), phone: customerPhone.trim() });
+          
+          const customerData = {
+            nic: customerNic.trim(),
+            name: customerName.trim()
+          };
+          
+          // Add phone number if provided
+          if (customerPhone.trim()) {
+            customerData.phone = customerPhone.trim();
+          }
           
           const customerResponse = await axios.post(
             `${BACKEND_API_URL}/customers/find-or-create`,
-            {
-              nic: customerNic.trim(),
-              name: customerName.trim()
-            },
+            customerData,
             {
               headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             }
@@ -393,6 +447,7 @@ const PointOfSale = () => {
           console.warn('Customer creation details:', {
             nic: customerNic.trim(),
             name: customerName.trim(),
+            phone: customerPhone.trim(),
             error: customerError.response?.data || customerError.message,
             status: customerError.response?.status
           });
@@ -416,6 +471,7 @@ const PointOfSale = () => {
         customer: customerId,
         customerNic: customerNic.trim() || null,
         customerName: customerName.trim() || 'Walk-in Customer',
+        customerPhone: customerPhone.trim() || null,
         amountPaid: parseFloat(paidAmount),
         balance: balance
       };
@@ -450,6 +506,7 @@ const PointOfSale = () => {
         setCartItems([]);
         setCustomerNic('');
         setCustomerName('');
+        setCustomerPhone('');
         setSelectedCustomer(null);
         setCustomerSearching(false);
         setShowCustomerSuggestions(false);
@@ -536,6 +593,7 @@ const PointOfSale = () => {
         const customer = response.data.data;
         setSelectedCustomer(customer);
         setCustomerName(customer.name);
+        setCustomerPhone(customer.phone || '');
         toast.success('Customer found');
       }
     } catch (error) {
@@ -582,9 +640,12 @@ const PointOfSale = () => {
 
   // Select customer from suggestions
   const handleCustomerSelect = (customer) => {
+    console.log('Setting customer from dropdown:', customer);
+    console.log('Customer status:', customer.status);
     setSelectedCustomer(customer);
     setCustomerNic(customer.nic);
     setCustomerName(customer.name);
+    setCustomerPhone(customer.phone || '');
     setShowCustomerSuggestions(false);
   };
 
@@ -655,7 +716,7 @@ const PointOfSale = () => {
                  {/* Item Code and Stock Row */}
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                    <div>
-                     <label className="block text-sm font-medium text-gray-700 mb-1">Item Code</label>
+                     <label className="block text-sm font-medium text-gray-700 mb-1">Item Code / Barcode</label>
                      <div className="flex gap-2">
                        <input
                          ref={itemCodeRef}
@@ -664,7 +725,7 @@ const PointOfSale = () => {
                          onChange={(e) => setItemCode(e.target.value)}
                          onBlur={handleItemCodeBlur}
                          onKeyPress={(e) => handleKeyPress(e, itemNameRef)}
-                         placeholder="Enter item code"
+                         placeholder="Enter item code, barcode, or item name"
                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                        />
                        <button
@@ -1009,6 +1070,7 @@ const PointOfSale = () => {
                             <div className="text-sm text-gray-500">
                               {customer.nic} • {customer.customerType} • 
                               {customer.totalSpent > 0 ? ` Rs. ${customer.totalSpent.toFixed(2)} spent` : ' New customer'}
+                              {customer.phone && ` • ${customer.phone}`}
                             </div>
                           </button>
                         ))}
@@ -1017,18 +1079,44 @@ const PointOfSale = () => {
               </div>
                   
                   {selectedCustomer && (
-                    <div className="mt-2 p-2 bg-blue-50 rounded-md text-sm">
-                      <div className="text-blue-800">
-                        <strong>{selectedCustomer.customerType.toUpperCase()}</strong> Customer
-            </div>
-                      <div className="text-blue-600">
-                        Total Purchases: {selectedCustomer.purchaseCount} • 
-                        Total Spent: Rs. {selectedCustomer.totalSpent.toFixed(2)}
-                        {selectedCustomer.loyaltyPoints > 0 && ` • Loyalty Points: ${selectedCustomer.loyaltyPoints}`}
-          </div>
-        </div>
+                    <div className={`mt-2 p-3 rounded-md text-sm ${
+                      (() => {
+                        const customerStatus = selectedCustomer.status || selectedCustomer.customerStatus;
+                        
+                        if (customerStatus === 'banned') return 'bg-red-50 border border-red-200';
+                        if (customerStatus === 'suspended') return 'bg-orange-50 border border-orange-200';
+                        if (customerStatus === 'inactive') return 'bg-yellow-50 border border-yellow-200';
+                        if (customerStatus === 'dormant') return 'bg-gray-50 border border-gray-200';
+                        return 'bg-green-50 border border-green-200'; // active or default
+                      })()
+                    }`}>
+                      <div className={`font-medium ${
+                        (() => {
+                          const customerStatus = selectedCustomer.status || selectedCustomer.customerStatus;
+                          
+                          if (customerStatus === 'banned') return 'text-red-800';
+                          if (customerStatus === 'suspended') return 'text-orange-800';
+                          if (customerStatus === 'inactive') return 'text-yellow-800';
+                          if (customerStatus === 'dormant') return 'text-gray-800';
+                          return 'text-green-800'; // active or default
+                        })()
+                      }`}>
+                        Total Purchases: {selectedCustomer.purchaseCount} • Total Spent: Rs. {selectedCustomer.totalSpent.toFixed(2)}
+                      </div>
+                    </div>
                   )}
       </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Phone (Optional)</label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="Enter phone number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Amount Paid</label>

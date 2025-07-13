@@ -186,7 +186,7 @@ exports.deleteCustomer = asyncHandler(async (req, res, next) => {
 // @access  Private
 exports.searchCustomers = asyncHandler(async (req, res, next) => {
   const customers = await Customer.findByNicOrName(req.params.query)
-    .select('nic name email phone customerType totalSpent purchaseCount lastPurchaseDate')
+    .select('nic name email phone customerType totalSpent purchaseCount lastPurchaseDate status')
     .limit(10);
 
   res.status(200).json({
@@ -324,6 +324,46 @@ exports.getCustomerAnalytics = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Update customer status
+// @route   PATCH /api/customers/:id/status
+// @access  Private
+exports.updateCustomerStatus = asyncHandler(async (req, res, next) => {
+  const { status } = req.body;
+  
+  // Validate status
+  const validStatuses = ['active', 'inactive', 'banned', 'suspended'];
+  if (!status || !validStatuses.includes(status)) {
+    return next(new ErrorResponse(`Status must be one of: ${validStatuses.join(', ')}`, 400));
+  }
+  
+  const customer = await Customer.findById(req.params.id);
+  
+  if (!customer) {
+    return next(new ErrorResponse(`Customer not found with id ${req.params.id}`, 404));
+  }
+  
+  const oldStatus = customer.status;
+  
+  // Update status and updatedBy
+  customer.status = status;
+  customer.updatedBy = req.user._id;
+  
+  // If status is being set to inactive or banned, also set isActive to false
+  if (status === 'inactive' || status === 'banned') {
+    customer.isActive = false;
+  } else {
+    customer.isActive = true;
+  }
+  
+  await customer.save();
+  
+  res.status(200).json({
+    success: true,
+    data: customer,
+    message: `Customer status updated from ${oldStatus} to ${status}`
+  });
+});
+
 // @desc    Test NIC validation
 // @route   POST /api/customers/test-nic
 // @access  Private
@@ -352,9 +392,9 @@ exports.testNicValidation = asyncHandler(async (req, res, next) => {
 // @route   POST /api/customers/find-or-create
 // @access  Private
 exports.findOrCreateCustomer = asyncHandler(async (req, res, next) => {
-  const { nic, name } = req.body;
+  const { nic, name, phone } = req.body;
 
-  console.log('findOrCreateCustomer called with:', { nic, name });
+  console.log('findOrCreateCustomer called with:', { nic, name, phone });
 
   if (!nic || !name) {
     console.log('Missing required fields:', { nic, name });
@@ -375,34 +415,46 @@ exports.findOrCreateCustomer = asyncHandler(async (req, res, next) => {
 
     if (!customer) {
       // Create new customer with minimal data
-      console.log('Creating new customer with data:', {
+      const customerData = {
         nic: nic.toUpperCase(),
         name: name.trim(),
+        customerNumber: `CUST${String(await Customer.countDocuments() + 1).padStart(4, '0')}`,
         createdBy: req.user._id
-      });
+      };
       
-      // Generate customer number
-      const customerCount = await Customer.countDocuments();
-      const customerNumber = `CUST${String(customerCount + 1).padStart(4, '0')}`;
+      // Add phone number if provided
+      if (phone && phone.trim()) {
+        customerData.phone = phone.trim();
+      }
       
-      customer = await Customer.create({
-        nic: nic.toUpperCase(),
-        name: name.trim(),
-        customerNumber: customerNumber,
-        createdBy: req.user._id
-      });
+      console.log('Creating new customer with data:', customerData);
+      
+      customer = await Customer.create(customerData);
       
       console.log('New customer created successfully:', customer._id);
     } else {
-      // Update name if different
+      // Update customer information if different
+      let hasChanges = false;
+      
       if (customer.name !== name.trim()) {
         console.log('Updating customer name from:', customer.name, 'to:', name.trim());
         customer.name = name.trim();
+        hasChanges = true;
+      }
+      
+      // Update phone number if provided and different
+      if (phone && phone.trim() && customer.phone !== phone.trim()) {
+        console.log('Updating customer phone from:', customer.phone, 'to:', phone.trim());
+        customer.phone = phone.trim();
+        hasChanges = true;
+      }
+      
+      if (hasChanges) {
         customer.updatedBy = req.user._id;
         await customer.save();
-        console.log('Customer name updated successfully');
+        console.log('Customer information updated successfully');
       } else {
-        console.log('Customer name unchanged, no update needed');
+        console.log('Customer information unchanged, no update needed');
       }
     }
 
