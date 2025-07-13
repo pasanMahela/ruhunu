@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import Loading from '../components/Loading';
 import { API_URL } from '../services/api';
 import PageHeader from '../components/PageHeader';
+import BillTemplate from '../components/BillTemplate';
 
 const SalesHistory = () => {
   const [sales, setSales] = useState([]);
@@ -101,113 +102,8 @@ const SalesHistory = () => {
     });
 
   const printSale = (sale) => {
-    const printWindow = window.open('', '_blank');
-    const saleDate = new Date(sale.createdAt).toLocaleString();
-    
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Sales Bill</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              padding: 20px;
-              max-width: 400px;
-              margin: 0 auto;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 20px;
-            }
-            .bill-details {
-              margin-bottom: 20px;
-            }
-            .items-table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            .items-table th, .items-table td {
-              border-bottom: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-            }
-            .total-section {
-              border-top: 2px solid #000;
-              padding-top: 10px;
-              margin-top: 10px;
-            }
-            .footer {
-              text-align: center;
-              margin-top: 30px;
-              font-size: 12px;
-            }
-            @media print {
-              body {
-                padding: 0;
-              }
-              .no-print {
-                display: none;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h2>Sales Bill</h2>
-            <p>Date: ${saleDate}</p>
-          </div>
-          
-          <div class="bill-details">
-            <p><strong>Customer:</strong> ${sale.customerName}</p>
-            <p><strong>Payment Method:</strong> ${sale.paymentMethod.toUpperCase()}</p>
-            <p><strong>Amount Paid:</strong> Rs. ${sale.amountPaid.toFixed(2)}</p>
-            <p><strong>Change:</strong> Rs. ${sale.balance.toFixed(2)}</p>
-          </div>
-
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th>Price</th>
-                <th>Disc</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${sale.items.map(item => `
-                <tr>
-                  <td>${item.name}</td>
-                  <td>${item.quantity}</td>
-                  <td>Rs. ${item.price.toFixed(2)}</td>
-                  <td>${item.discount}%</td>
-                  <td>Rs. ${item.total.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="total-section">
-            <p><strong>Subtotal:</strong> Rs. ${sale.subtotal.toFixed(2)}</p>
-            <p><strong>Total Discount:</strong> Rs. ${(sale.subtotal - sale.total).toFixed(2)}</p>
-            <p><strong>Grand Total:</strong> Rs. ${sale.total.toFixed(2)}</p>
-          </div>
-
-          <div class="footer">
-            <p>Thank you for your purchase!</p>
-            <p>Please come again</p>
-          </div>
-
-          <div class="no-print" style="text-align: center; margin-top: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
-              Print Bill
-            </button>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // Use the thermal printer optimized template
+    BillTemplate.printThermalBill(sale);
   };
 
   const handleViewSale = (sale) => {

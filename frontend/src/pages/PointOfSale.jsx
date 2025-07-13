@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { API_URL } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import PageHeader from '../components/PageHeader';
+import BillTemplate from '../components/BillTemplate';
 
 const PointOfSale = () => {
   const { user } = useAuth();
@@ -54,6 +55,8 @@ const PointOfSale = () => {
 
   // UI states
   const [isProcessing, setIsProcessing] = useState(false);
+  const [addToCartLoading, setAddToCartLoading] = useState(false);
+  const [removingItems, setRemovingItems] = useState(new Set());
 
   // Initialize current date
   useEffect(() => {
@@ -84,7 +87,8 @@ const PointOfSale = () => {
           const itemData = item.item;
           const quantity = item.quantity;
           const price = itemData.retailPrice;
-          const discount = itemData.discount || 0;
+          // Use cart item's discount if available, otherwise use item's default discount
+          const discount = item.discount !== undefined ? item.discount : (itemData.discount || 0);
           const lineTotal = quantity * price * (1 - discount / 100);
           
           return {
@@ -217,15 +221,18 @@ const PointOfSale = () => {
         return;
       }
 
+    setAddToCartLoading(true);
     try {
       const qty = parseFloat(quantity);
+      const discount = parseFloat(discountPercent) || 0;
       
       // Add to database cart
       const response = await axios.post(
         `${BACKEND_API_URL}/cart/items`,
         {
           itemId: selectedItem._id,
-          quantity: qty
+          quantity: qty,
+          discount: discount
         },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -244,11 +251,16 @@ const PointOfSale = () => {
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast.error(error.response?.data?.message || 'Failed to add item to cart');
+    } finally {
+      setAddToCartLoading(false);
     }
   };
 
   // Remove item from cart
   const handleRemoveFromCart = async (itemId) => {
+    // Add item to removing set
+    setRemovingItems(prev => new Set([...prev, itemId]));
+    
     try {
       // Find the cart item to get the actual database item ID
       const cartItem = cartItems.find(item => item.id === itemId);
@@ -269,6 +281,13 @@ const PointOfSale = () => {
     } catch (error) {
       console.error('Error removing from cart:', error);
       toast.error(error.response?.data?.message || 'Failed to remove item from cart');
+    } finally {
+      // Remove item from removing set
+      setRemovingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
     }
   };
 
@@ -283,7 +302,10 @@ const PointOfSale = () => {
 
       const response = await axios.put(
         `${BACKEND_API_URL}/cart/items/${cartItem.itemId}`,
-        { quantity: newQuantity },
+        { 
+          quantity: newQuantity,
+          discount: cartItem.discountPercent
+        },
         {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         }
@@ -444,92 +466,18 @@ const PointOfSale = () => {
     }
   };
 
-  // Print receipt
+  // Print receipt using centralized template
   const printReceipt = (saleData, billNumber) => {
-    const printWindow = window.open('', '_blank');
-    const saleDate = new Date().toLocaleString();
+    // Prepare data for the bill template
+    const billData = {
+      ...saleData,
+      billNumber: billNumber,
+      createdAt: new Date(),
+      cashier: { name: user?.name || 'Unknown' }
+    };
     
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Sales Receipt</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; max-width: 400px; margin: 0 auto; }
-            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-            .company-name { font-size: 20px; font-weight: bold; margin-bottom: 5px; }
-            .contact-info { font-size: 12px; color: #666; }
-            .bill-details { margin: 20px 0; }
-            .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .items-table th, .items-table td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
-            .items-table th { background-color: #f5f5f5; }
-            .total-section { border-top: 2px solid #000; padding-top: 10px; margin-top: 10px; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; border-top: 1px dashed #ccc; padding-top: 10px; }
-            .amount { text-align: right; }
-            @media print { body { padding: 0; } .no-print { display: none; } }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="company-name">Ruhunu Tyre House</div>
-            <div class="contact-info">📞 Support: 077-123-4567<br/>📧 info@ruhunutyre.lk</div>
-          </div>
-          
-          <div class="bill-details">
-            <p><strong>Receipt #:</strong> ${billNumber || 'N/A'}</p>
-            <p><strong>Date:</strong> ${saleDate}</p>
-            <p><strong>Cashier:</strong> ${user?.name || 'Unknown'}</p>
-            <p><strong>Customer:</strong> ${saleData.customerName}</p>
-            <p><strong>Payment:</strong> ${saleData.paymentMethod.toUpperCase()}</p>
-          </div>
-
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>Item</th>
-                <th>Qty</th>
-                <th class="amount">Price</th>
-                <th class="amount">Disc%</th>
-                <th class="amount">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${saleData.items.map(item => `
-                <tr>
-                  <td>${item.name}<br/><small>${item.itemCode}</small></td>
-                  <td>${item.quantity}</td>
-                  <td class="amount">Rs. ${item.price.toFixed(2)}</td>
-                  <td class="amount">${item.discount.toFixed(1)}%</td>
-                  <td class="amount">Rs. ${item.total.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-
-          <div class="total-section">
-            <table style="width: 100%;">
-              <tr><td>Gross Value:</td><td class="amount">Rs. ${saleData.subtotal.toFixed(2)}</td></tr>
-              <tr><td>Final Discount:</td><td class="amount">Rs. ${(saleData.subtotal - saleData.total).toFixed(2)}</td></tr>
-              <tr style="font-weight: bold; font-size: 16px;"><td>Net Value:</td><td class="amount">Rs. ${saleData.total.toFixed(2)}</td></tr>
-              <tr><td>Paid Amount:</td><td class="amount">Rs. ${saleData.amountPaid.toFixed(2)}</td></tr>
-              <tr><td>Balance:</td><td class="amount">Rs. ${saleData.balance.toFixed(2)}</td></tr>
-            </table>
-          </div>
-
-          <div class="footer">
-            <p>Thank you for your business!</p>
-            <p>Please visit us again</p>
-            <p style="margin-top: 10px;">--- Goods once sold are not returnable ---</p>
-          </div>
-
-          <div class="no-print" style="text-align: center; margin-top: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
-              Print Receipt
-            </button>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
+    // Use the thermal printer optimized template
+    BillTemplate.printThermalBill(billData);
   };
 
   // Handle Enter key navigation
@@ -847,11 +795,19 @@ const PointOfSale = () => {
                                 
                                 <button
                     onClick={handleAddToCart}
-                    disabled={!selectedItem}
+                    disabled={!selectedItem || addToCartLoading}
                     className="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-2"
                   >
-                    <FiPlus size={16} />
-                                      Add to Cart
+                    {addToCartLoading ? (
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                        className="w-4 h-4 border-2 border-white border-t-transparent rounded-full"
+                      />
+                    ) : (
+                      <FiPlus size={16} />
+                    )}
+                    {addToCartLoading ? 'Adding...' : 'Add to Cart'}
                                 </button>
                               </div>
                             </div>
@@ -911,9 +867,18 @@ const PointOfSale = () => {
                               <td className="py-3 text-center">
                                 <button
                                   onClick={() => handleRemoveFromCart(item.id)}
-                                  className="text-red-600 hover:text-red-800 p-1 rounded"
+                                  disabled={removingItems.has(item.id)}
+                                  className="text-red-600 hover:text-red-800 p-1 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  <FiTrash2 size={16} />
+                                  {removingItems.has(item.id) ? (
+                                    <motion.div
+                                      animate={{ rotate: 360 }}
+                                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                      className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full"
+                                    />
+                                  ) : (
+                                    <FiTrash2 size={16} />
+                                  )}
                                 </button>
                           </td>
                         </motion.tr>

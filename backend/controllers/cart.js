@@ -34,7 +34,7 @@ const getCart = async (req, res) => {
 // @access  Private
 const addToCart = async (req, res) => {
   try {
-    const { itemId, quantity } = req.body;
+    const { itemId, quantity, discount } = req.body;
 
     if (!itemId || !quantity) {
       return res.status(400).json({
@@ -64,25 +64,23 @@ const addToCart = async (req, res) => {
       cart = await Cart.create({ user: req.user.id, items: [] });
     }
 
-    // Check if item already exists in cart
-    const existingItemIndex = cart.items.findIndex(
-      cartItem => cartItem.item.toString() === itemId
-    );
+    // Use provided discount or default to item's discount
+    const itemDiscount = discount !== undefined ? discount : item.discount;
 
-    if (existingItemIndex > -1) {
-      // Update quantity if item exists
-      const newQuantity = cart.items[existingItemIndex].quantity + quantity;
-      if (newQuantity > item.quantityInStock) {
-        return res.status(400).json({
-          success: false,
-          message: 'Total quantity exceeds available stock'
-        });
-      }
-      cart.items[existingItemIndex].quantity = newQuantity;
-    } else {
-      // Add new item to cart
-      cart.items.push({ item: itemId, quantity });
+    // Check total quantity of this item in cart to ensure we don't exceed stock
+    const totalQuantityInCart = cart.items
+      .filter(cartItem => cartItem.item.toString() === itemId)
+      .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+
+    if (totalQuantityInCart + quantity > item.quantityInStock) {
+      return res.status(400).json({
+        success: false,
+        message: 'Total quantity exceeds available stock'
+      });
     }
+
+    // Always add new item to cart (don't update existing ones)
+    cart.items.push({ item: itemId, quantity, discount: itemDiscount });
 
     await cart.save();
     await cart.populate({
@@ -108,7 +106,7 @@ const addToCart = async (req, res) => {
 // @access  Private
 const updateCartItem = async (req, res) => {
   try {
-    const { quantity } = req.body;
+    const { quantity, discount } = req.body;
     const { itemId } = req.params;
 
     if (!quantity) {
@@ -147,6 +145,12 @@ const updateCartItem = async (req, res) => {
     }
 
     cart.items[itemIndex].quantity = quantity;
+    
+    // Update discount if provided
+    if (discount !== undefined) {
+      cart.items[itemIndex].discount = discount;
+    }
+    
     await cart.save();
     await cart.populate({
       path: 'items.item',

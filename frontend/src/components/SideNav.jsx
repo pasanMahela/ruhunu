@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiMenu, FiX, FiHome, FiUsers, FiPackage,
   FiLogOut, FiPlus, FiShoppingCart, FiTrendingUp, FiBarChart,
-  FiChevronRight, FiChevronLeft, FiFileText, FiSearch, FiActivity
+  FiChevronRight, FiChevronLeft, FiFileText, FiSearch, FiActivity, FiEdit2
 } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,6 +24,7 @@ const SideNav = () => {
     // Inventory Management
     { path: '/inventory', label: 'Inventory', icon: FiPackage, roles: ['admin', 'user'] },
     { path: '/add-new-item', label: 'Add Item', icon: FiPlus, roles: ['admin'] },
+    { path: '/edit-item', label: 'Edit Item', icon: FiEdit2, roles: ['admin'] },
     { path: '/add-stocks', label: 'Add Stocks', icon: FiPlus, roles: ['admin'] },
     
     // Reports & Analytics

@@ -289,26 +289,65 @@ const AddStocks = () => {
 
   const validateForm = () => {
     const newErrors = {};
+    let firstErrorField = null;
+
+    // Item Code validation
     if (!formData.itemCode) {
       newErrors.itemCode = 'Item Code is required';
-      if (itemCodeInputRef.current) {
-        itemCodeInputRef.current.focus();
+      firstErrorField = itemCodeInputRef;
+    }
+
+    // Location validation
+    if (!formData.location) {
+      newErrors.location = 'Location is required';
+      if (!firstErrorField) {
+        firstErrorField = document.querySelector('input[name="location"]');
       }
     }
-    if (!formData.location) newErrors.location = 'Location is required';
+
+    // New Stock validation
     if (!formData.newStock) {
       newErrors.newStock = 'New Stock is required';
+      if (!firstErrorField) {
+        firstErrorField = document.querySelector('input[name="newStock"]');
+      }
     } else if (isNaN(formData.newStock)) {
       newErrors.newStock = 'Must be a number';
+      if (!firstErrorField) {
+        firstErrorField = document.querySelector('input[name="newStock"]');
+      }
     }
+
+    // Lower Limit validation
     if (formData.lowerLimit && isNaN(formData.lowerLimit)) {
       newErrors.lowerLimit = 'Must be a number';
+      if (!firstErrorField) {
+        firstErrorField = document.querySelector('input[name="lowerLimit"]');
+      }
     }
+
+    // Item Discount validation
     if (formData.itemDiscount && isNaN(formData.itemDiscount)) {
       newErrors.itemDiscount = 'Must be a number';
+      if (!firstErrorField) {
+        firstErrorField = document.querySelector('input[name="itemDiscount"]');
+      }
     }
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    // Focus the first field with an error
+    if (firstErrorField) {
+      setTimeout(() => {
+        firstErrorField.focus();
+        if (firstErrorField.select) {
+          firstErrorField.select();
+        }
+      }, 100);
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e) => {
@@ -352,11 +391,13 @@ const AddStocks = () => {
           newStock: ''
         }));
         
-        // Focus item code input for next search
-        if (itemCodeInputRef.current) {
-          itemCodeInputRef.current.focus();
-          itemCodeInputRef.current.select();
-        }
+        // Focus and select item code input after successful update
+        setTimeout(() => {
+          if (itemCodeInputRef.current) {
+            itemCodeInputRef.current.focus();
+            itemCodeInputRef.current.select();
+          }
+        }, 100);
       } else {
         throw new Error(response.data.message || 'Failed to update stock');
       }

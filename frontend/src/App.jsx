@@ -9,6 +9,7 @@ import Footer from './components/Footer';
 import AddStocks from './pages/AddStocks';
 import LoginPage from './pages/LoginPage';
 import AddNewItem from './pages/AddNewItem';
+import EditItem from './pages/EditItem';
 import PointOfSale from './pages/PointOfSale';
 import SalesHistory from './pages/SalesHistory';
 import SalesReports from './pages/SalesReports';
@@ -122,6 +123,14 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <AddNewItem />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit-item"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <EditItem />
               </ProtectedRoute>
             }
           />

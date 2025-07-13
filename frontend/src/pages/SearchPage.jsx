@@ -14,6 +14,7 @@ import { toast } from 'react-hot-toast';
 import api from '../services/api';
 import ConfirmModal from '../components/ConfirmModal';
 import PageHeader from '../components/PageHeader';
+import BillTemplate from '../components/BillTemplate';
 
 const SearchPage = () => {
   const [searchCriteria, setSearchCriteria] = useState({
@@ -121,102 +122,15 @@ const SearchPage = () => {
       const response = await api.get(`/sales/${saleId}`);
       const billData = response.data.data;
       
-      // Create print window
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(generatePrintHTML(billData));
-      printWindow.document.close();
-      printWindow.print();
+      // Use the thermal printer optimized template
+      BillTemplate.printThermalBill(billData);
     } catch (error) {
       console.error('Error printing bill:', error);
       toast.error('Error preparing bill for printing');
     }
   };
 
-  // Generate print HTML
-  const generatePrintHTML = (billData) => {
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Bill #${billData.billNumber}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          .header { text-align: center; margin-bottom: 20px; }
-          .bill-info { margin-bottom: 15px; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-          th { background-color: #f2f2f2; }
-          .total { font-weight: bold; }
-          .text-right { text-align: right; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h2>Ruhunu Tyre House</h2>
-          <p>Sales Receipt</p>
-        </div>
-        
-        <div class="bill-info">
-          <p><strong>Bill Number:</strong> ${billData.billNumber}</p>
-          <p><strong>Date:</strong> ${new Date(billData.createdAt).toLocaleDateString()}</p>
-          <p><strong>Customer:</strong> ${billData.customerName || 'Walk-in Customer'}</p>
-          ${billData.customerNIC ? `<p><strong>NIC:</strong> ${billData.customerNIC}</p>` : ''}
-        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>Code</th>
-              <th>Qty</th>
-              <th>Unit Price</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${billData.items.map(item => `
-              <tr>
-                <td>${item.name}</td>
-                <td>${item.itemCode}</td>
-                <td>${item.quantity}</td>
-                <td class="text-right">Rs. ${item.price.toFixed(2)}</td>
-                <td class="text-right">Rs. ${item.total.toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-          <tfoot>
-            <tr class="total">
-              <td colspan="4">Subtotal:</td>
-              <td class="text-right">Rs. ${billData.subtotal.toFixed(2)}</td>
-            </tr>
-            ${billData.discount > 0 ? `
-              <tr>
-                <td colspan="4">Discount:</td>
-                <td class="text-right">Rs. ${billData.discount.toFixed(2)}</td>
-              </tr>
-            ` : ''}
-            <tr class="total">
-              <td colspan="4">Total Amount:</td>
-              <td class="text-right">Rs. ${billData.totalAmount.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td colspan="4">Amount Paid:</td>
-              <td class="text-right">Rs. ${billData.amountPaid.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td colspan="4">Change:</td>
-              <td class="text-right">Rs. ${billData.change.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <div style="margin-top: 20px; text-align: center;">
-          <p>Thank you for your business!</p>
-        </div>
-      </body>
-      </html>
-    `;
-  };
 
   // Handle input changes
   const handleInputChange = (field, value) => {
