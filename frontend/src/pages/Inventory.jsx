@@ -216,6 +216,11 @@ const Inventory = () => {
       if (sortField === 'category') {
         aValue = a.category?.name || '';
         bValue = b.category?.name || '';
+      } else if (sortField === 'itemCode') {
+        // Extract numeric parts from item codes
+        const aNum = parseInt(aValue.replace(/\D/g, '')) || 0;
+        const bNum = parseInt(bValue.replace(/\D/g, '')) || 0;
+        return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
       }
       
       if (typeof aValue === 'string') {
@@ -223,9 +228,9 @@ const Inventory = () => {
         bValue = bValue.toLowerCase();
       }
       
-        const result = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-        return sortDirection === 'asc' ? result : -result;
-      });
+      const result = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+      return sortDirection === 'asc' ? result : -result;
+    });
   }, [items, debouncedSearchTerm, filters, sortField, sortDirection]);
 
   // Optimized keyboard shortcuts with useCallback

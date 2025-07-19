@@ -1180,7 +1180,6 @@ const AddNewItem = () => {
           onSuccess={() => {
             setIsCategoryModalOpen(false);
             fetchCategories();
-            toast.success('Category added successfully');
           }}
         />
       </div>

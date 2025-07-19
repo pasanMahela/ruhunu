@@ -45,6 +45,46 @@ const AnalyticsDashboard = () => {
   const [customerData, setCustomerData] = useState(null);
   const [peakHoursData, setPeakHoursData] = useState(null);
   const [dashboardSummary, setDashboardSummary] = useState(null);
+  const [yesterdayData, setYesterdayData] = useState(null);
+
+  // Fetch yesterday's data for comparison
+  const fetchYesterdayData = async () => {
+    try {
+      // Calculate yesterday's date
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      
+      const response = await api.get(`/analytics/dashboard-summary?date=${yesterdayStr}`);
+      setYesterdayData(response.data.data);
+    } catch (error) {
+      console.error('Error fetching yesterday data:', error);
+      // Don't set error state as this is optional data
+    }
+  };
+
+  // Calculate percentage change
+  const calculatePercentageChange = (current, previous) => {
+    if (!previous || previous === 0) return { value: 0, type: 'neutral' };
+    
+    const change = ((current - previous) / previous) * 100;
+    return {
+      value: Math.abs(change),
+      type: change > 0 ? 'increase' : change < 0 ? 'decrease' : 'neutral',
+      sign: change > 0 ? '+' : change < 0 ? '-' : ''
+    };
+  };
+
+  // Format percentage change
+  const formatPercentageChange = (current, previous) => {
+    const change = calculatePercentageChange(current, previous);
+    if (change.type === 'neutral') return { text: '0%', type: 'neutral' };
+    
+    return {
+      text: `${change.sign}${change.value.toFixed(1)}%`,
+      type: change.type
+    };
+  };
 
   // Fetch real-time sales data
   const fetchRealTimeData = async (period = timePeriod) => {
@@ -60,7 +100,26 @@ const AnalyticsDashboard = () => {
   // Fetch profit/loss analysis
   const fetchProfitLossData = async (period = timePeriod) => {
     try {
-      const response = await api.get(`/analytics/profit-loss?period=${period}&groupBy=day`);
+      // Choose appropriate groupBy based on period
+      let groupBy = 'day';
+      switch (period) {
+        case 'today':
+          groupBy = 'hour';
+          break;
+        case 'week':
+          groupBy = 'day';
+          break;
+        case 'month':
+          groupBy = 'day';
+          break;
+        case 'quarter':
+          groupBy = 'week';
+          break;
+        default:
+          groupBy = 'day';
+      }
+      
+      const response = await api.get(`/analytics/profit-loss?period=${period}&groupBy=${groupBy}`);
       setProfitLossData(response.data.data);
     } catch (error) {
       console.error('Error fetching profit/loss data:', error);
@@ -112,7 +171,8 @@ const AnalyticsDashboard = () => {
         fetchProfitLossData(period),
         fetchCustomerData(period),
         fetchPeakHoursData(period),
-        fetchDashboardSummary()
+        fetchDashboardSummary(),
+        fetchYesterdayData()
       ]);
     } catch (error) {
       console.error('Error loading analytics data:', error);
@@ -189,34 +249,34 @@ const AnalyticsDashboard = () => {
 
     const cards = [
       {
-        title: "Today's Sales",
+        title: `${timePeriod === 'today' ? "Today's" : timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)} Sales`,
         value: formatCurrency(dashboardSummary.today.sales),
-        change: "+12.5%",
-        changeType: "increase",
+        change: formatPercentageChange(dashboardSummary.today.sales, yesterdayData?.today.sales).text,
+        changeType: formatPercentageChange(dashboardSummary.today.sales, yesterdayData?.today.sales).type,
         icon: "💰",
         color: "bg-blue-500"
       },
       {
         title: "Transactions",
         value: dashboardSummary.today.transactions.toString(),
-        change: "+8.2%",
-        changeType: "increase",
+        change: formatPercentageChange(dashboardSummary.today.transactions, yesterdayData?.today.transactions).text,
+        changeType: formatPercentageChange(dashboardSummary.today.transactions, yesterdayData?.today.transactions).type,
         icon: "🛒",
         color: "bg-green-500"
       },
       {
         title: "Items Sold",
         value: dashboardSummary.today.items.toString(),
-        change: "+15.3%",
-        changeType: "increase",
+        change: formatPercentageChange(dashboardSummary.today.items, yesterdayData?.today.items).text,
+        changeType: formatPercentageChange(dashboardSummary.today.items, yesterdayData?.today.items).type,
         icon: "📦",
         color: "bg-purple-500"
       },
       {
         title: "Avg. Order Value",
         value: formatCurrency(dashboardSummary.today.sales / (dashboardSummary.today.transactions || 1)),
-        change: "+3.1%",
-        changeType: "increase",
+        change: formatPercentageChange(dashboardSummary.today.sales / (dashboardSummary.today.transactions || 1), yesterdayData?.today.sales / (yesterdayData?.today.transactions || 1)).text,
+        changeType: formatPercentageChange(dashboardSummary.today.sales / (dashboardSummary.today.transactions || 1), yesterdayData?.today.sales / (yesterdayData?.today.transactions || 1)).type,
         icon: "📊",
         color: "bg-orange-500"
       }
@@ -236,7 +296,8 @@ const AnalyticsDashboard = () => {
                 </p>
                 <div className="flex items-center mt-2">
                   <span className={`text-sm font-medium ${
-                    card.changeType === 'increase' ? 'text-green-600' : 'text-red-600'
+                    card.changeType === 'increase' ? 'text-green-600' : 
+                    card.changeType === 'decrease' ? 'text-red-600' : 'text-gray-500'
                   }`}>
                     {card.change}
                   </span>
@@ -289,12 +350,55 @@ const AnalyticsDashboard = () => {
   const ProfitLossChart = () => {
     if (!profitLossData?.profitLossData) return null;
 
+    // Dynamic title based on current period
+    const getChartTitle = () => {
+      switch (timePeriod) {
+        case 'today':
+          return 'Hourly Profit & Loss (Today)';
+        case 'week':
+          return 'Daily Profit & Loss (Last 7 Days)';
+        case 'month':
+          return 'Daily Profit & Loss (This Month)';
+        case 'quarter':
+          return 'Weekly Profit & Loss (This Quarter)';
+        default:
+          return 'Profit & Loss Analysis';
+      }
+    };
+
+    // Check if we have data
+    if (profitLossData.profitLossData.length === 0) {
+      return (
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">{getChartTitle()}</h3>
+          <div className="h-80 flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <div className="text-4xl mb-4">📊</div>
+              <p>No profit & loss data available for {timePeriod === 'today' ? 'today' : `this ${timePeriod}`}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const data = {
       labels: profitLossData.profitLossData.map(item => {
-        if (item._id.day) {
+        // Handle different groupBy formats
+        if (item._id.hour !== undefined) {
+          // Hourly format (for today)
+          return `${item._id.hour}:00`;
+        } else if (item._id.week !== undefined) {
+          // Weekly format (for quarter)
+          return `Week ${item._id.week}`;
+        } else if (item._id.day !== undefined) {
+          // Daily format (for week/month)
           return `${item._id.day}/${item._id.month}`;
+        } else if (item._id.month !== undefined) {
+          // Monthly format (for year)
+          return `${item._id.month}/${item._id.year}`;
         }
-        return `${item._id.month}/${item._id.year}`;
+        // Fallback
+        return 'Unknown';
       }),
       datasets: [
         {
@@ -317,7 +421,7 @@ const AnalyticsDashboard = () => {
 
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Profit & Loss Analysis</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{getChartTitle()}</h3>
         <div className="h-80">
           <Bar data={data} options={chartOptions} />
         </div>
@@ -508,15 +612,25 @@ const AnalyticsDashboard = () => {
             <button
               key={period}
               onClick={() => handlePeriodChange(period)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              disabled={loading}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 timePeriod === period
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
+                  ? 'bg-blue-500 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50'
+              } ${loading ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             >
+              {loading && timePeriod === period && (
+                <div className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+              )}
               {period.charAt(0).toUpperCase() + period.slice(1)}
             </button>
           ))}
+          {loading && (
+            <div className="flex items-center text-sm text-gray-500 ml-4">
+              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+              Loading {timePeriod} data...
+            </div>
+          )}
         </div>
 
         {/* Error Message */}

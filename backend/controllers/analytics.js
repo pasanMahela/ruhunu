@@ -24,6 +24,11 @@ exports.getRealTimeSales = async (req, res) => {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         break;
+      case 'quarter':
+        const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+        startDate = new Date(now.getFullYear(), quarterStart, 1);
+        endDate = new Date(now.getFullYear(), quarterStart + 3, 1);
+        break;
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -109,6 +114,10 @@ exports.getProfitLossAnalysis = async (req, res) => {
     const now = new Date();
     
     switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        break;
       case 'week':
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         endDate = now;
@@ -354,6 +363,10 @@ exports.getCustomerBehaviorAnalytics = async (req, res) => {
     const now = new Date();
     
     switch (period) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        break;
       case 'week':
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         endDate = now;
@@ -550,6 +563,11 @@ exports.getPeakHoursAnalysis = async (req, res) => {
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         break;
+      case 'quarter':
+        const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+        startDate = new Date(now.getFullYear(), quarterStart, 1);
+        endDate = new Date(now.getFullYear(), quarterStart + 3, 1);
+        break;
       default:
         startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         endDate = now;
@@ -732,16 +750,24 @@ exports.getPeakHoursAnalysis = async (req, res) => {
 // Dashboard Summary
 exports.getDashboardSummary = async (req, res) => {
   try {
-    const now = new Date();
+    const { date } = req.query;
+    let now = new Date();
+    
+    // If a specific date is requested, use that date
+    if (date) {
+      now = new Date(date);
+    }
+    
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
     const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // Today's summary
+    // Today's (or specified date's) summary
     const todayStats = await Sale.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfDay },
+          createdAt: { $gte: startOfDay, $lt: endOfDay },
           paymentStatus: 'completed'
         }
       },
@@ -755,11 +781,11 @@ exports.getDashboardSummary = async (req, res) => {
       }
     ]);
 
-    // Week comparison
+    // Week comparison (from the reference date)
     const weekStats = await Sale.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfWeek },
+          createdAt: { $gte: startOfWeek, $lt: endOfDay },
           paymentStatus: 'completed'
         }
       },
@@ -772,11 +798,11 @@ exports.getDashboardSummary = async (req, res) => {
       }
     ]);
 
-    // Month comparison  
+    // Month comparison (from the reference date)
     const monthStats = await Sale.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfMonth },
+          createdAt: { $gte: startOfMonth, $lt: endOfDay },
           paymentStatus: 'completed'
         }
       },
@@ -789,16 +815,16 @@ exports.getDashboardSummary = async (req, res) => {
       }
     ]);
 
-    // Low stock alerts
-    const lowStockItems = await Item.find({
+    // Low stock alerts (only for current data, not historical)
+    const lowStockItems = date ? [] : await Item.find({
       stock: { $lte: 10 }
     }).select('name itemCode stock reorderLevel').limit(5);
 
-    // Top selling items today
+    // Top selling items for the day
     const topItemsToday = await Sale.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfDay },
+          createdAt: { $gte: startOfDay, $lt: endOfDay },
           paymentStatus: 'completed'
         }
       },
@@ -839,7 +865,8 @@ exports.getDashboardSummary = async (req, res) => {
         month: monthStats[0] || { sales: 0, transactions: 0 },
         lowStockItems,
         topItemsToday,
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        requestedDate: date || 'today'
       }
     });
 
